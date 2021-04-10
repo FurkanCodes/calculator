@@ -20,6 +20,7 @@ function divide(a, b) {
 }
 
 function calculate(a, operator, b) {
+ 
   if (operator === "+") {
     return add(a, b);
   } else if (operator === "-") {
@@ -51,6 +52,8 @@ let decimalCount = 0;
 
 display.textContent = 0;
 
+
+
 numButton.forEach((number) => {
   number.addEventListener("click", function () {
     // For  the decimal increment decimal counter
@@ -70,6 +73,7 @@ numButton.forEach((number) => {
 
 opButton.forEach((operator) => {
   operator.addEventListener("click", function () {
+   
     if (firstNumber && displayVal) {
       displayResult();
     }
@@ -82,31 +86,35 @@ opButton.forEach((operator) => {
 });
 
 equalsKey.addEventListener("click", function () {
+  if(display.length != 0) {
+    return;
+  }
   displayResult();
+
+  
 });
 
 function displayResult() {
-  result = calculate(
-    parseFloat(firstNumber),
-    clickedOperator,
-    parseFloat(displayVal)
-  );
-  display.textContent = result;
-  display.textContent = firstNumber + displayVal;
-  displayVal = result;
-}
+
+    result = calculate(parseFloat(firstNumber), clickedOperator, parseFloat(displayVal));
+    display.textContent = result;
+    display.textContent = firstNumber + displayVal;
+    displayVal = result;
+    
+  }
+ 
+
 
 // clears the display
 clearBtn.addEventListener("click", function () {
-  return resetAll();
-});
 
-function resetAll() {
   displayVal = "";
   clickedOperator = "";
-  firstNumber = "";
-  result = "";
-  display.textContent = 0;
-}
+ firstNumber = "";
+ result = "";
+equalsKey.disabled = false;
+display.textContent = 0;
+
+});
 
 
