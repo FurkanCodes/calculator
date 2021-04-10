@@ -15,7 +15,7 @@ function divide(a, b) {
   if (b != "0") {
     return parseFloat(a) / parseFloat(b);
   } else {
-    return "I afraid you cannot divide by 0";
+    return "I am afraid you cannot divide by 0";
   }
 }
 
@@ -46,22 +46,19 @@ let displayVal = "";
 let clickedOperator = "";
 let firstNumber = "";
 let result = "";
-
-// Decimal counter
 let decimalCount = 0;
-
 display.textContent = 0;
 
 
 
 numButton.forEach((number) => {
   number.addEventListener("click", function () {
-    // For  the decimal increment decimal counter
+  
     if (number.id === ".") {
       decimalCount++;
     }
 
-    // For more than one decimal don't do anything. Return
+   
     if (number.id === "." && decimalCount > 1) {
       return;
     }
@@ -85,13 +82,14 @@ opButton.forEach((operator) => {
   });
 });
 
+
 equalsKey.addEventListener("click", function () {
   if(display.length != 0) {
+  
     return;
   }
-  displayResult();
 
-  
+  displayResult();
 });
 
 function displayResult() {
@@ -99,8 +97,9 @@ function displayResult() {
     result = calculate(parseFloat(firstNumber), clickedOperator, parseFloat(displayVal));
     display.textContent = result;
     display.textContent = firstNumber + displayVal;
+  
     displayVal = result;
-    
+
   }
  
 
@@ -112,7 +111,7 @@ clearBtn.addEventListener("click", function () {
   clickedOperator = "";
  firstNumber = "";
  result = "";
-equalsKey.disabled = false;
+
 display.textContent = 0;
 
 });
