@@ -84,20 +84,24 @@ opButton.forEach((operator) => {
 
 
 equalsKey.addEventListener("click", function () {
-  if(display.length != 0) {
-  
-    return;
-  }
 
-  displayResult();
+  if (displayVal !== "" && firstNumber !== "" && clickedOperator !== "") {
+      //equalsKey.disabled = false;
+      displayResult();
+  }else{
+      //equalsKey.disabled = true;
+      clearBtn.click();
+      display.textContent = 0;
+      alert("Invalid operation. Please try again");
+  }
 });
 
 function displayResult() {
 
     result = calculate(parseFloat(firstNumber), clickedOperator, parseFloat(displayVal));
     display.textContent = result;
-    display.textContent = firstNumber + displayVal;
-  
+
+
     displayVal = result;
 
   }
