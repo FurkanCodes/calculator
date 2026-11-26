@@ -1,29 +1,26 @@
 <!--
-Draft written before any code exists. Before submitting:
+Before submitting:
+- add an application screenshot with alt text once the frontend exists
 - run every command below from a clean checkout and fix anything that differs
-- confirm the Go and Node versions against go.mod and package.json
-- add a screenshot with alt text, the CI badge, and the coverage numbers
+- re-measure coverage and update the table in "Testing and Coverage"
 - remove the temporary 127.0.0.1:8081 port mapping from docker-compose.yml once the web container exists
 -->
 
 # Calculator
 
-A calculator web app with a Go backend that does exact decimal arithmetic. `0.1 + 0.2` returns `0.3`, and when a result has to be rounded, such as `1 ÷ 3`, the response says so.
+A calculator with a Go backend that does exact decimal arithmetic. `0.1 + 0.2` returns `0.3`, and when a result has to be rounded, such as `1 ÷ 3`, the response says so.
 
-The frontend is React and TypeScript in `frontend/`, and the backend is one Go service in `backend/`. It was built for a take-home assignment with a 2–4 hour brief, so it favours a small, well-tested core over extra features. An API gateway with API keys and rate limits, and the AWS deployment, are designed in [Production design](#production-design-not-built) but not built.
+The Go backend is built and tested. Not built yet: the React frontend and the nginx container that will serve it ([design](docs/frontend-design.md)), CI, and the `power`, `sqrt` and `percentage` operations. The brief for this take-home allows 2–4 hours, so it favours a small, well-tested core over extra features.
 
-## Quick start
+<!-- Application screenshot goes here once the frontend exists. -->
+
+## Quick Start
 
 Requires Docker with Compose v2.
 
 ```sh
-docker compose up --build
-```
-
-Open http://localhost:8080. To call the API directly:
-
-```sh
-curl -s http://localhost:8080/api/v1/calculate \
+docker compose up -d --build
+curl -s http://127.0.0.1:8081/api/v1/calculate \
   -H 'Content-Type: application/json' \
   -d '{"operation": "add", "operands": ["0.1", "0.2"]}'
 ```
@@ -32,25 +29,33 @@ curl -s http://localhost:8080/api/v1/calculate \
 {"result":"0.3","exact":true}
 ```
 
-## What it does
+Until the frontend exists, the backend is published on `127.0.0.1:8081`. After that, nginx will serve the app on port 8080 and be the only way in.
 
-| Operation    | Operands | Meaning                         | Example operands | Result                                   |
-| ------------ | -------- | ------------------------------- | ---------------- | ---------------------------------------- |
-| `add`        | 2        | a + b                           | `["0.1", "0.2"]` | `"0.3"`                                  |
-| `subtract`   | 2        | a − b                           | `["5", "7.5"]`   | `"-2.5"`                                 |
-| `multiply`   | 2        | a × b                           | `["1.5", "4"]`   | `"6"`                                    |
-| `divide`     | 2        | a ÷ b                           | `["1", "3"]`     | `"0.3333333333333333333333333333333333"` |
-| `power`      | 2        | a to the power b, b an integer  | `["2", "-2"]`    | `"0.25"`                                 |
-| `sqrt`       | 1        | square root of a                | `["2"]`          | `"1.414213562373095048801688724209698"`  |
-| `percentage` | 2        | a% of b, which is a × b ÷ 100   | `["15", "80"]`   | `"12"`                                   |
+## Local Development
 
-The frontend is a keypad, which also works from the keyboard. It runs one operation at a time, like a pocket calculator: each result becomes the first number of the next operation. The backend computes every result, and the browser does no arithmetic.
+The backend requires Go 1.27.4 or newer, as set in `go.mod`:
+
+```sh
+cd backend
+go run ./cmd/calculator          # listens on :8081; set PORT to change it
+```
+
+The frontend is not built yet.
+
+## Supported Operations
+
+| Operation  | Operands         | Result                                                    |
+| ---------- | ---------------- | --------------------------------------------------------- |
+| `add`      | `["0.1", "0.2"]` | `"0.3"`                                                   |
+| `subtract` | `["5", "7.5"]`   | `"-2.5"`                                                  |
+| `multiply` | `["1.5", "4"]`   | `"6"`                                                     |
+| `divide`   | `["1", "3"]`     | `"0.3333333333333333333333333333333333"`, `exact: false` |
+
+Not built yet: `power`, `sqrt` and `percentage`.
 
 ## API
 
 ### `POST /api/v1/calculate`
-
-Request:
 
 ```json
 {"operation": "divide", "operands": ["1", "3"]}
@@ -62,69 +67,44 @@ Success, `200`:
 {"result": "0.3333333333333333333333333333333333", "exact": false}
 ```
 
-`exact` is `false` when the result was rounded to 34 significant digits, and `true` otherwise. Every response has an `X-Request-ID` header, and the same ID appears in the service's log line for that request.
+`exact` is `false` when the result was rounded. Every response has an `X-Request-Id` header, and the same ID appears in the service's log line for that request.
 
-#### Numbers
+The body must be one JSON object with exactly two keys, `operation` and `operands`, each appearing once and matched case-sensitively. Operands and results are JSON strings. A valid number:
 
-Operands and results are JSON strings, never JSON numbers. Browsers and most JSON libraries read JSON numbers as binary floating point, which would undo the exact arithmetic before it started.
+- is a plain decimal such as `-12.5`, `0.001` or `42`, with no `+`, no exponent and no bare `.`
+- is at most 256 characters long
+- has at most 34 significant digits
+- is zero, or has a magnitude from 10⁻¹⁰⁰ up to (not including) 10¹⁰⁰
 
-A valid number:
+Every error has the same shape. Clients should act on `code`; `message` is for people and may change.
 
-- is a plain decimal: an optional `-`, then digits, then an optional fraction (`-12.5`, `0.001`, `42`). It has no `+`, no exponent (`1e5`), no spaces, and no leading or trailing dot (`.5`, `5.`).
-- is at most 256 characters long.
-- has at most 34 significant digits, counted from the first non-zero digit to the last.
-- is zero, or has a magnitude of at least 10⁻¹⁰⁰ and less than 10¹⁰⁰.
-
-Every result follows the same rules, so any result can be sent back as an operand.
-
-#### Errors
-
-Every error has the same shape:
-
-```json
-{"error": {"code": "DIVISION_BY_ZERO", "message": "Cannot divide by zero."}}
-```
-
-Clients should act on `code`. The `message` is meant for people reading logs or curl output, and its wording may change.
-
-| Code                    | Status | When                                                                  |
-| ----------------------- | ------ | --------------------------------------------------------------------- |
-| `INVALID_REQUEST`       | 400    | The body is not valid JSON, has unknown fields, or lacks a field      |
-| `INVALID_NUMBER`        | 400    | An operand is not a valid number string, or is a JSON number          |
-| `WRONG_OPERAND_COUNT`   | 400    | For example, `sqrt` with two operands                                 |
-| `UNSUPPORTED_OPERATION` | 400    | The operation is not in the table above                               |
-| `NOT_FOUND`             | 404    | The path does not exist, such as `/api/v2/calculate`                  |
-| `METHOD_NOT_ALLOWED`    | 405    | The wrong method for the path, such as `GET /api/v1/calculate`        |
-| `INPUT_TOO_LARGE`       | 413    | The body is over 4 KiB, or an operand is over 256 characters or 34 significant digits |
-| `DIVISION_BY_ZERO`      | 422    | Dividing by zero, or raising zero to a negative power                 |
-| `NEGATIVE_SQUARE_ROOT`  | 422    | The square root of a negative number                                  |
-| `INVALID_EXPONENT`      | 422    | A `power` exponent that is not an integer, or is outside −1000 to 1000 |
-| `OUT_OF_RANGE`          | 422    | An operand or the result is non-zero and outside 10⁻¹⁰⁰ to 10¹⁰⁰       |
-| `INTERNAL_ERROR`        | 500    | A bug. The service logs it with the request ID                        |
-| `SERVICE_UNAVAILABLE`   | 503    | Sent by nginx when the calculator is down or does not answer in time  |
-
-#### More examples
-
-Division by zero:
+| Status | Codes                                                                                               |
+| ------ | --------------------------------------------------------------------------------------------------- |
+| 400    | `INVALID_REQUEST` (malformed body), `INVALID_NUMBER`, `WRONG_OPERAND_COUNT`, `UNSUPPORTED_OPERATION` |
+| 404    | `NOT_FOUND`, also for a path that is not in clean form, such as `/api/v1//calculate`                |
+| 405    | `METHOD_NOT_ALLOWED`, with an `Allow` header listing the methods the path accepts                   |
+| 413    | `INPUT_TOO_LARGE`: a body over 4 KiB, or an operand over the length or digit limit                  |
+| 422    | `DIVISION_BY_ZERO`, `OUT_OF_RANGE`                                                                  |
+| 500    | `INTERNAL_ERROR`: a bug, logged with the request ID                                                 |
 
 ```sh
-curl -s -i http://localhost:8080/api/v1/calculate \
+curl -s -i http://127.0.0.1:8081/api/v1/calculate \
   -H 'Content-Type: application/json' \
   -d '{"operation": "divide", "operands": ["10", "0"]}'
 ```
 
+Response (`Date` and `Content-Length` headers left out):
+
 ```
 HTTP/1.1 422 Unprocessable Entity
 Content-Type: application/json
-X-Request-ID: 3f0c9a6e2b7d4c1e
+X-Request-Id: 3f0c9a6e2b7d4c1e
 
 {"error":{"code":"DIVISION_BY_ZERO","message":"Cannot divide by zero."}}
 ```
 
-A JSON number where a string is expected:
-
 ```sh
-curl -s http://localhost:8080/api/v1/calculate \
+curl -s http://127.0.0.1:8081/api/v1/calculate \
   -H 'Content-Type: application/json' \
   -d '{"operation": "add", "operands": [0.1, 0.2]}'
 ```
@@ -135,288 +115,112 @@ curl -s http://localhost:8080/api/v1/calculate \
 
 ### `GET /healthz`
 
-Returns `200 {"status":"ok"}` while the process is running. The web container does not forward it. Compose checks it from inside the calculator container, and you can call it directly when the backend runs on its own (see below).
+Returns `200 {"status":"ok"}` while the process is running. It is not logged.
 
-## Running without Docker
+## Architecture
 
-Backend, which requires Go 1.27.4 or newer:
-
-```sh
-cd backend
-go run ./cmd/calculator          # listens on :8081; set PORT to change it
-curl -s http://localhost:8081/healthz
+```mermaid
+flowchart TB
+    client(["Client"])
+    subgraph service["calculator service: one Go binary, own container"]
+        subgraph transport["internal/httpapi: transport"]
+            rid["Request ID"]
+            router["Router: calculate, healthz,<br/>JSON 404 and 405"]
+            endpoint["Endpoint wrapper<br/>body limit, panic recovery<br/>error JSON, log line"]
+            decode["Decode JSON, check shape"]
+        end
+        subgraph calculator["internal/calc: calculator"]
+            dispatch["Operation table"]
+            numbers["Number rules"]
+            policy["Precision policy"]
+        end
+        decimal["shopspring/decimal"]
+    end
+    client --> rid --> router --> endpoint --> decode --> dispatch
+    dispatch --> numbers --> policy --> decimal
+    dispatch -.->|"error code"| endpoint
 ```
 
-Frontend, which requires Node.js 22 or newer:
+The service is one Go binary with two packages, and depends only on the standard library and shopspring/decimal.
 
-```sh
-cd frontend
-npm ci
-npm run dev                      # http://localhost:5173; forwards /api to localhost:8081
-```
+- **`internal/httpapi`** is the transport. It routes, decodes JSON, checks the request's shape, maps error codes to statuses and writes the logs. Handlers return their error instead of writing it, so one wrapper produces every error response and log line. The package never imports the decimal library, and a test checks that.
+- **`internal/calc`** is the calculator. It looks the operation up in a table, checks the operands against the number rules, runs the operation and applies the precision policy. It is pure: no I/O, no logging and no state.
 
-## Tests and coverage
+The service runs in its own container (`backend/Dockerfile`). A planned nginx container will serve the frontend and forward `/api/*` to it ([frontend design](docs/frontend-design.md)).
+
+## Design Decisions
+
+### Decimal precision
+
+The arithmetic uses [shopspring/decimal](https://github.com/shopspring/decimal), because its values are immutable. Its own rounding doesn't fit, though: `Div` rounds to 16 decimal places, so `0.000000000000000001 ÷ 3` comes back as `0`. So `internal/calc` owns all rounding:
+
+- Every result keeps 34 significant digits (the IEEE 754 decimal128 precision), rounded half to even.
+- Each result is rounded exactly once. Add, subtract and multiply are exact, and their result is rounded afterwards. Division truncates with `QuoRem`, and the exact remainder decides the last digit.
+- `calc` may use only an allowlist of 19 shopspring functions and methods, plus its `Decimal` type. That keeps out the ones that round or format on their own terms, such as `Div`, `Avg` and the `UseScientificNotation` setting. A test enforces it.
+
+[cockroachdb/apd](https://github.com/cockroachdb/apd) offers this rounding control directly, but writes results into mutable pointers. With shopspring, the precision rules are our own roughly 50 lines of code. They are tested against Python's `decimal` module, and the fuzz test compares every result with an exact `math/big` calculation that is rounded separately. Integer minor units, the usual choice for money, don't fit either: a calculator has no currency and no fixed scale.
+
+### String-based numerical representation
+
+In binary floating point, `0.1 + 0.2` is `0.30000000000000004`. Doing decimal arithmetic in Go isn't enough on its own, because JSON numbers get turned back into floats by `JSON.parse` in the browser, and by Go if a field is a `float64`. So numbers are strings everywhere:
+
+- The API rejects JSON numbers.
+- A test fails if `calc` uses a float type.
+
+Every result follows the same rules as an operand, so a result can always be sent back. The accepted and rejected formats are listed once in `testdata/numbers.json`, and the Go tests run against it.
+
+### Stateless backend
+
+The brief asks for a backend microservice, so there is exactly one, and it stores nothing. Any instance can be stopped or replaced at any time.
+
+On SIGTERM, the server stops accepting connections and lets in-flight requests finish within 5 seconds, which is under Docker's 10-second stop grace period. The Dockerfile uses an exec-form `ENTRYPOINT`, so the Go process is PID 1 and receives the signal itself. The runtime image is distroless and has no shell or `curl`, so the health check runs `calculator -healthcheck`.
+
+### Validation and error handling
+
+`httpapi` checks only the shape of a request. It reads the whole body before parsing, so any body over 4 KiB is `INPUT_TOO_LARGE` wherever its first syntax error is, and it parses with `encoding/json/v2`, which rejects duplicate keys and anything after the object. `calc` checks everything about the numbers, and an operation's operand count is part of its row in the operation table, so adding an operation touches one place. The backend checks every request itself and never relies on validation in a client.
+
+One table maps each error code to its HTTP status. A test type-checks `calc` and fails if any constant of type `Code` is missing from the table. Errors caused by the request are logged at info level with their code, because a user dividing by zero is the service working correctly. Only a 500 is logged at error level, together with its cause.
+
+### Frontend state management
+
+Not built yet. The planned design is in [docs/frontend-design.md](docs/frontend-design.md).
+
+## Testing and Coverage
 
 ```sh
 cd backend
 go test -race -coverprofile=coverage.out ./...
-go tool cover -func=coverage.out          # summary; -html=coverage.out for the full report
+go tool cover -func=coverage.out          # or -html=coverage.out for the full report
 ```
 
-```sh
-cd frontend
-npm test                                   # Vitest
-npm run coverage                           # report in frontend/coverage/index.html
-```
+Last measured on 2026-11-26:
 
-GitHub Actions runs both suites on every push and pull request, and uploads both coverage reports as build artifacts. It then starts the Compose stack and runs a smoke test: one calculation end to end, then a request with the calculator stopped, which must return the JSON `SERVICE_UNAVAILABLE` error.
+| Package            | Coverage | Not covered |
+| ------------------ | -------- | ----------- |
+| `internal/calc`    | 100%     |             |
+| `internal/httpapi` | 100%     |             |
+| `cmd/calculator`   | 84.8%    | `main()` itself; the error returns for a bad flag, a failed shutdown and a malformed health-check URL; the `PORT` default |
+| Total              | 96.7%    |             |
 
-What the tests cover:
+- **`internal/calc`:** expected results come from Python's `decimal` module, an independent implementation of the same rounding rules. The cases include half-even ties and results that round past 10¹⁰⁰. A fuzz test checks that any input gives either a named error or a valid operand, that every result and its `exact` flag match an exact `math/big` calculation rounded separately, and that exact results survive the inverse operation. One test runs the shared number cases. Another type-checks the package and fails on any of these:
+  - a value of float type
+  - a function or method from another package outside the allowlist, which keeps out shopspring's self-rounding calls and anything that changes a value in place
+  - an import that could do I/O, read the clock or log
+  - a package-level variable other than the operation table and the number pattern
+  - a direct write to a package-level variable: an assignment, `++` or `--`, `delete`, `clear`, or taking its address (a write through a copied map reference is not caught)
 
-- `internal/calc`: table-driven tests for every operation and every error code, including rounding ties, the 34-digit boundary and the number limits. Expected values come from Python's `decimal` module, an independent implementation of the same rounding rules. A fuzz test checks that any input either returns a named error or a result that is a valid operand, and that an exact result run through the inverse operation gives back the first operand. A separate test fails if the package uses a float type or a shopspring function that rounds on its own.
-- `internal/httpapi`: `httptest` tests for each status and error code, unknown fields, JSON numbers, oversized bodies, and the request ID header. Each error case also checks that exactly one info-level log line was written with the code and the same request ID the client received. A panic test checks the 500 response and the error-level log with its stack. A further test fails if the package imports the decimal library.
-- `cmd/calculator`: the server starts, and on shutdown it finishes a request that is still in flight.
-- Frontend: the reducer, the Zod schemas run against the shared number cases, the API client with a stubbed `fetch`, and component tests with React Testing Library.
+  That check is itself tested against a sample that breaks each rule.
+- **`internal/httpapi`:** every status and error code is tested, including the exact 4 KiB body limit, duplicate keys, oversized bodies that are not JSON, paths not in clean form, and a 405 on every route. Each error must produce exactly one info-level log line carrying the request ID the client received. Panics and unmapped codes must become a 500 whose log line keeps the original error. One test fails if a `calc` error code, found by type-checking the package, has no HTTP status. Another fails if the package imports the decimal library.
+- **`cmd/calculator`:** a request still in flight when shutdown starts must complete, and the `-healthcheck` flag is tested.
 
-## Architecture
+CI is not set up yet.
 
-### System
+## Assumptions
 
-```mermaid
-flowchart LR
-    user(["Browser"])
-    subgraph compose["docker compose"]
-        subgraph web["web container: nginx"]
-            static["Static files<br/>React build"]
-            proxy["Reverse proxy<br/>/api/* to calculator"]
-        end
-        subgraph calculator["calculator container: Go, no public port"]
-            httpapi["internal/httpapi<br/>routing, JSON decoding,<br/>request shape, error to status"]
-            calc["internal/calc<br/>operation table, parsing,<br/>precision policy, domain errors"]
-            decimal["shopspring/decimal"]
-        end
-    end
-    user -->|"GET /"| static
-    user -->|"POST /api/v1/calculate"| proxy
-    proxy -->|"HTTP :8081"| httpapi
-    httpapi --> calc
-    calc --> decimal
-```
+- **Precision and rounding:** every result keeps 34 significant digits, rounded half to even, and `exact: false` marks a rounded result. Inputs over the number limits are rejected, never rounded.
+- **Operations:** one operation per request, with no operator precedence. Division by zero is an error, not infinity.
+- **Scope:** there is no authentication, rate limiting or API gateway. An AWS design with them is in [docs/production-design.md](docs/production-design.md), not built. There is no history or storage. This is not a money library: it has no currencies, minor units or allocation rules.
 
-The browser talks only to nginx, which serves the React build and forwards `/api/*` to the calculator, so the page and the API share one origin. The calculator has no port published to the host. Inside it, `httpapi` handles HTTP and never imports the decimal library. `calc` owns everything about numbers.
+## AI Usage
 
-### Request flow
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor U as User
-    participant R as React app
-    participant N as nginx
-    participant H as httpapi
-    participant C as calc
-    U->>R: presses 1 ÷ 3 =
-    R->>R: Zod checks each operand string
-    R->>N: POST /api/v1/calculate (divide, "1", "3")
-    N->>H: forwards the request
-    H->>H: body size, valid JSON, known fields, operands are strings
-    H->>C: Calculate("divide", ["1", "3"])
-    C->>C: finds the operation, checks the operand count
-    C->>C: parses operands, checks number limits
-    C->>C: divides, rounds once to 34 significant digits
-    alt success
-        C-->>H: 0.333…3, exact = false
-        H-->>R: 200 with result and exact
-        R-->>U: shows the result, marked as rounded
-    else domain error, such as dividing by zero
-        C-->>H: DIVISION_BY_ZERO
-        H-->>R: 422 with the error code and message
-        R-->>U: shows the text for that code
-    end
-```
-
-### Frontend state
-
-```mermaid
-stateDiagram-v2
-    direction LR
-    [*] --> EnteringFirst
-    EnteringFirst --> OperatorChosen: operator
-    EnteringFirst --> Calculating: square root
-    OperatorChosen --> EnteringSecond: digit
-    EnteringSecond --> Calculating: equals or operator
-    Calculating --> ShowingResult: success
-    Calculating --> Error: error or no connection
-    ShowingResult --> OperatorChosen: operator
-    ShowingResult --> EnteringFirst: digit
-    Error --> EnteringFirst: digit
-```
-
-Three rules sit outside the diagram. Digits, the decimal point and the sign key keep you in the current entry state. Clear returns to `EnteringFirst` from any state, and cancels a request that is still in flight. While in `Calculating`, every other key is ignored. When the request was started by an operator rather than `=`, the result becomes the first number and that operator is already chosen. The reducer that implements all of this is a pure function, so it is tested without rendering anything.
-
-### Project layout
-
-```
-.
-├── backend/
-│   ├── cmd/calculator/      config, server start, graceful shutdown
-│   ├── internal/httpapi/    routing, JSON decoding, request checks, error mapping, middleware
-│   ├── internal/calc/       operation table, number parsing, precision policy, domain errors
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   ├── nginx.conf           serves the build, forwards /api/*, answers its own errors in JSON
-│   └── Dockerfile           builds the app and runs it with nginx
-├── testdata/numbers.json    accepted and rejected number strings, shared by both test suites
-├── docker-compose.yml
-├── .github/workflows/ci.yml
-├── CLAUDE.md                ground rules followed while building this
-├── PROMPTS.md
-└── README.md
-```
-
-## Design decisions
-
-### Numbers are strings from end to end
-
-Binary floating point cannot represent 0.1 exactly, so `0.1 + 0.2` in `float64` gives `0.30000000000000004`. Decimal arithmetic in Go is not enough on its own, because JSON numbers get turned back into floats on the way in or out: by `JSON.parse` in the browser, and by Go's decoder if a field is a `float64`. So operands and results are strings everywhere, the frontend does no arithmetic, and a test fails if the `calc` package uses a float type.
-
-### Decimal arithmetic with an explicit precision policy
-
-The backend uses [shopspring/decimal](https://github.com/shopspring/decimal) because its API is immutable: every operation returns a new value, so a result cannot be overwritten by accident. Its defaults do not meet the rules here, though. `Div` rounds to 16 decimal places, so `0.000000000000000001 ÷ 3` returns `0` with no error, and `Sqrt(1e-40)` also returns `0`.
-
-So `internal/calc` owns all rounding:
-
-- Precision is 34 significant digits, the precision of the IEEE 754 decimal128 format. Digits are counted from the first non-zero digit, so a very small result keeps all of its digits.
-- Rounding is half-even, which avoids the upward bias of always rounding halves up.
-- Each result is rounded once. Add, subtract and multiply are exact in shopspring, so the policy rounds their exact result. Division uses `QuoRem` and sets the last digit from the exact remainder, so it never rounds twice.
-- `exact: false` tells the client that rounding changed the result.
-- In `calc`, shopspring functions that round by themselves (`Div`, `DivRound`, `Round`, `Sqrt`, `Pow`) and the `Require*` constructors, which panic on bad input, are banned. A test enforces this.
-
-The alternative was [cockroachdb/apd](https://github.com/cockroachdb/apd), which provides a precision context and an `Inexact` flag out of the box, but writes results into mutable pointers. With shopspring, the precision policy is our own code, and it is tested as such.
-
-### Why not integer minor units
-
-Payment systems often store money as integers in a currency's smallest unit, such as cents. That works because the currency fixes the scale. A calculator has no currency and no fixed scale, and `√2` has no smallest unit. Arbitrary-precision decimals with one explicit rounding step do the same job here.
-
-### One service, one endpoint
-
-The brief asks for a backend microservice, so there is one. Splitting the operations into separate services would add network hops and deployment work while separating nothing that changes independently. Every operation goes through `POST /api/v1/calculate`. Each operation is a row in a table (name, operand count, function), so adding one means adding a row and its tests, with no handler changes.
-
-### nginx serves the frontend and keeps one origin
-
-The React build is a set of static files, and something has to serve them in production. nginx does that, and also forwards `/api/*` to the calculator, so the page and the API share one origin. This means there is no CORS configuration in Go, the frontend calls relative `/api/...` paths (Vite's dev server forwards them the same way during development), and the calculator has no public port. nginx is not an API gateway: it does no authentication or rate limiting. In production, that job belongs to AWS API Gateway (see [Production design](#production-design-not-built)).
-
-Because nginx forwards API traffic, its own error responses reach API clients too. By default those are HTML pages, so nginx is configured to answer in the same JSON format: `SERVICE_UNAVAILABLE` (503) when the calculator is down or does not answer in time, and `INPUT_TOO_LARGE` (413) for a body over nginx's own 1 MB limit. CI checks this by stopping the calculator and expecting the JSON 503.
-
-### Validation in three places, each with one job
-
-| Layer          | Checks                                                                                        | Why                                              |
-| -------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| Zod (frontend) | Each operand string matches the number format                                                 | Instant feedback. The backend never relies on it |
-| `httpapi`      | Body size, valid JSON, no unknown fields, `operation` is a string, `operands` is a string array | Rejects malformed requests before any maths runs |
-| `calc`         | Known operation, operand count, number format and limits, maths rules                         | One place owns everything about numbers          |
-
-The number format is defined once: `testdata/numbers.json` lists accepted and rejected strings, and both the Go tests and Vitest run against it, so the two sides cannot drift apart.
-
-### Errors are codes with fixed statuses
-
-Every failure has a code from a fixed list, and each code maps to exactly one HTTP status. Clients act on the code, and the frontend chooses its own wording for each one. Domain errors such as division by zero are logged at info level, with the code as a field. A user dividing by zero is the service working correctly, and logging it as an error would page someone for nothing. Panics are recovered, logged at error level with the request ID, and returned as `INTERNAL_ERROR`.
-
-### Dependencies
-
-The backend uses the standard library (`net/http` routing patterns, `log/slog`, `testing`, `httptest`) plus shopspring/decimal. The frontend uses React, TypeScript, Vite, Base UI, Tailwind CSS, Zod, Vitest and React Testing Library, and calls the API with plain `fetch`. Any further dependency needs a reason written here.
-
-### Shutdown and health
-
-On SIGTERM, the server stops accepting connections and lets in-flight requests finish, with a 5-second limit that stays under Docker's 10-second stop grace period. The Dockerfile starts the binary with an exec-form `ENTRYPOINT`, so the Go process is PID 1 and receives the signal itself. With a shell-form `CMD`, the shell would be PID 1 and would not pass the signal on. The image has no shell or `curl`, so Compose's health check runs `calculator -healthcheck`, which calls `/healthz` and exits 0 or 1. There is no separate readiness endpoint, because nothing in this setup routes traffic based on one.
-
-### Frontend
-
-- The backend is the only place maths happens. The cost is a network round trip for every `=` and every chained operator. To handle that, the UI has a `Calculating` state, ignores keys while a request is in flight (Clear cancels it), and shows a separate message when the service cannot be reached: either a `SERVICE_UNAVAILABLE` response, or no response at all.
-- State lives in the calculator component as a `useReducer`. There is one screen and nothing shared between components, so Redux would have nothing to do.
-- Zod validates API responses as well as user input, turning each reply into a typed success-or-error value.
-- [Base UI](https://base-ui.com) provides unstyled, accessible components, and Tailwind CSS styles them.
-
-## Production design (not built)
-
-The local build has no API gateway, authentication or rate limiting. This is how the service would run on AWS with all three. The same calculator image runs unchanged.
-
-```mermaid
-flowchart LR
-    client(["Browser or API client"])
-    cf["CloudFront with AWS WAF<br/>per-IP rate limits"]
-    s3["S3<br/>React build"]
-    subgraph apigw["API Gateway, REST API, stage api"]
-        keys["POST /v1/keys"]
-        calculate["POST /v1/calculate<br/>API key required,<br/>usage plan rate and quota"]
-    end
-    issuer["Key issuer Lambda<br/>creates a key, adds it<br/>to the usage plan"]
-    subgraph vpc["VPC, private subnets in 2 AZs"]
-        nlb["Network Load Balancer<br/>health check on /healthz"]
-        ecs["ECS Fargate service<br/>calculator containers"]
-    end
-    logs["CloudWatch Logs<br/>metric filter per error code"]
-
-    client --> cf
-    cf -->|"/*"| s3
-    cf -->|"/api/*"| apigw
-    keys --> issuer
-    calculate -->|"VPC link"| nlb
-    nlb --> ecs
-    ecs -.->|"JSON logs"| logs
-```
-
-```mermaid
-sequenceDiagram
-    actor C as Client
-    participant E as CloudFront and WAF
-    participant G as API Gateway
-    participant L as Key issuer Lambda
-    participant S as Calculator on Fargate
-    C->>E: POST /api/v1/keys
-    E->>E: per-IP rate limit on key creation
-    E->>G: forwards the request
-    G->>L: invokes
-    L->>G: CreateApiKey, CreateUsagePlanKey
-    L-->>C: 201 with the key, shown once
-    C->>E: POST /api/v1/calculate with x-api-key header
-    E->>G: forwards the request
-    G->>G: is the key valid, and within its rate and quota?
-    alt over the limit
-        G-->>C: 429 with error code RATE_LIMITED
-    else allowed
-        G->>S: forwards through the VPC link and NLB
-        S-->>C: 200 with the result
-    end
-```
-
-| Local build                         | AWS design                                                  |
-| ----------------------------------- | ----------------------------------------------------------- |
-| nginx serving the React build       | S3 behind CloudFront                                        |
-| nginx forwarding `/api/*`           | A CloudFront behaviour forwarding `/api/*` to API Gateway   |
-| No gateway, auth or rate limits     | WAF per-IP limits, plus API keys with usage plans           |
-| The calculator container            | The same image on ECS Fargate, two or more tasks across AZs |
-| Compose health check on `/healthz`  | NLB target health check on `/healthz`                       |
-| `docker stop`: SIGTERM, 10 s grace  | ECS task stop: SIGTERM, 30 s default stop timeout           |
-| JSON logs on stdout                 | CloudWatch Logs, with a metric filter per error code        |
-
-- API keys identify a client so that API Gateway can throttle and meter it. They do not authenticate anyone, and AWS's documentation advises against using them for that. Real user sign-in would be a Cognito user pool authorizer.
-- Anyone can create a key. Without a per-IP limit on key creation, a client that hits its usage-plan limit could simply create a new key, which is why the WAF rule sits in front.
-- API Gateway caps the number of API keys per account and region (10,000 by default). Beyond that, keys would move to DynamoDB with a Lambda authorizer.
-- Errors keep the same JSON shape in production. API Gateway's default error bodies look like `{"message": "Forbidden"}`, so its gateway responses are customised: throttling and quota errors become `RATE_LIMITED` (429), a missing or unknown key becomes `INVALID_API_KEY` (403), and integration failures or timeouts become `SERVICE_UNAVAILABLE` (503), the same code nginx sends locally. The WAF rate rule's block response uses the same `RATE_LIMITED` body.
-- Fargate was chosen over Lambda because the same container image runs locally and in production, and the graceful shutdown and health check carry over unchanged. Lambda would need an adapter and would add cold starts to request latency.
-
-## Assumptions and non-goals
-
-- One operation at a time, evaluated left to right. There are no expressions and no operator precedence: `2 + 3 × 4` gives `20`, as on a pocket calculator.
-- `power` takes integer exponents from −1000 to 1000. `0` to the power `0` is `1`. Fractional exponents give irrational results and would need their own rounding path, so they are left out.
-- `percentage` means "a% of b".
-- There are no complex numbers, so the square root of a negative number is an error.
-- The local build has no API keys, rate limiting or authentication. See [Production design](#production-design-not-built).
-- There is no history and no storage. The service is stateless.
-- This is not a money library: it has no currencies, minor units or allocation rules.
-
-## Prompts
-
-The prompts used to design and build this are in [PROMPTS.md](PROMPTS.md), as the brief asks.
+This was built with Claude Code. The prompts used to design and build it are in [PROMPTS.md](PROMPTS.md), as the brief asks.

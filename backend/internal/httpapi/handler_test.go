@@ -10,8 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-
-	"github.com/FurkanCodes/calculator/backend/internal/calc"
+	"testing/iotest"
 )
 
 const calculatePath = "/api/v1/calculate"
@@ -49,6 +48,17 @@ func parseLogs(t *testing.T, logs *bytes.Buffer) []logLine {
 	return lines
 }
 
+// errorCode decodes an error response and returns its code, failing the test
+// if the body is not in the error format.
+func errorCode(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	var resp errorResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil || resp.Error.Message == "" {
+		t.Fatalf("body is not the error format: %s", rec.Body)
+	}
+	return resp.Error.Code
+}
+
 func TestHealthz(t *testing.T) {
 	rec, logs := send(t, http.MethodGet, "/healthz", "", nil)
 
@@ -75,7 +85,7 @@ func TestCalculate(t *testing.T) {
 		{"exact result", `{"operation": "add", "operands": ["0.1", "0.2"]}`, `{"result":"0.3","exact":true}`},
 		{"rounded result", `{"operation": "divide", "operands": ["1", "3"]}`,
 			`{"result":"0.3333333333333333333333333333333333","exact":false}`},
-		{"whitespace after the object", "{\"operation\": \"multiply\", \"operands\": [\"1.5\", \"4\"]}\n  ",
+		{"keys in any order, whitespace after", "{\"operands\": [\"1.5\", \"4\"], \"operation\": \"multiply\"}\n  ",
 			`{"result":"6","exact":true}`},
 	}
 	for _, tt := range tests {
@@ -113,24 +123,40 @@ func TestErrorResponses(t *testing.T) {
 	}{
 		{"empty body", http.MethodPost, calculatePath, "", 400, "INVALID_REQUEST"},
 		{"not JSON", http.MethodPost, calculatePath, "add 1 2", 400, "INVALID_REQUEST"},
+		{"JSON null", http.MethodPost, calculatePath, "null", 400, "INVALID_REQUEST"},
 		{"JSON array", http.MethodPost, calculatePath, `["add", "1", "2"]`, 400, "INVALID_REQUEST"},
 		{"unknown field", http.MethodPost, calculatePath, `{"operation": "add", "operands": ["1", "2"], "precision": 10}`, 400, "INVALID_REQUEST"},
+		{"keys in the wrong case", http.MethodPost, calculatePath, `{"OPERATION": "add", "OPERANDS": ["1", "2"]}`, 400, "INVALID_REQUEST"},
 		{"missing operation", http.MethodPost, calculatePath, `{"operands": ["1", "2"]}`, 400, "INVALID_REQUEST"},
 		{"missing operands", http.MethodPost, calculatePath, `{"operation": "add"}`, 400, "INVALID_REQUEST"},
 		{"operation is a number", http.MethodPost, calculatePath, `{"operation": 1, "operands": ["1", "2"]}`, 400, "INVALID_REQUEST"},
-		{"second JSON value", http.MethodPost, calculatePath, `{"operation": "add", "operands": ["1", "2"]} {}`, 400, "INVALID_REQUEST"},
+		{"operation is null", http.MethodPost, calculatePath, `{"operation": null, "operands": ["1", "2"]}`, 400, "INVALID_REQUEST"},
+		{"operands is a string", http.MethodPost, calculatePath, `{"operation": "add", "operands": "1"}`, 400, "INVALID_REQUEST"},
+		{"operands is an object", http.MethodPost, calculatePath, `{"operation": "add", "operands": {"a": "1"}}`, 400, "INVALID_REQUEST"},
+		{"operands is null", http.MethodPost, calculatePath, `{"operation": "add", "operands": null}`, 400, "INVALID_REQUEST"},
+		{"second JSON value", http.MethodPost, calculatePath, `{"operation": "add", "operands": ["1", "2"]} 5`, 400, "INVALID_REQUEST"},
+		{"duplicate operation key", http.MethodPost, calculatePath, `{"operation": "add", "operation": "divide", "operands": ["1", "4"]}`, 400, "INVALID_REQUEST"},
+		{"duplicate operands key", http.MethodPost, calculatePath, `{"operation": "add", "operands": ["1", "2"], "operands": ["3", "4"]}`, 400, "INVALID_REQUEST"},
 		{"operands are JSON numbers", http.MethodPost, calculatePath, `{"operation": "add", "operands": [0.1, 0.2]}`, 400, "INVALID_NUMBER"},
+		{"an operand is null", http.MethodPost, calculatePath, `{"operation": "add", "operands": ["1", null]}`, 400, "INVALID_NUMBER"},
 		{"operand is not a number", http.MethodPost, calculatePath, calculateBody("add", "1", "abc"), 400, "INVALID_NUMBER"},
 		{"one operand too few", http.MethodPost, calculatePath, calculateBody("add", "1"), 400, "WRONG_OPERAND_COUNT"},
 		{"empty operands", http.MethodPost, calculatePath, `{"operation": "add", "operands": []}`, 400, "WRONG_OPERAND_COUNT"},
 		{"unsupported operation", http.MethodPost, calculatePath, calculateBody("modulo", "1", "2"), 400, "UNSUPPORTED_OPERATION"},
 		{"body over 4 KiB", http.MethodPost, calculatePath, calculateBody("add", "1", strings.Repeat("1", 5000)), 413, "INPUT_TOO_LARGE"},
+		{"non-JSON body over 4 KiB", http.MethodPost, calculatePath, strings.Repeat("x", 10000), 413, "INPUT_TOO_LARGE"},
+		{"valid object then 4 KiB of junk", http.MethodPost, calculatePath, calculateBody("add", "1", "2") + strings.Repeat("x", 10000), 413, "INPUT_TOO_LARGE"},
 		{"operand over 34 digits", http.MethodPost, calculatePath, calculateBody("add", "1", "12345678901234567890123456789012345"), 413, "INPUT_TOO_LARGE"},
 		{"division by zero", http.MethodPost, calculatePath, calculateBody("divide", "10", "0"), 422, "DIVISION_BY_ZERO"},
 		{"result out of range", http.MethodPost, calculatePath, calculateBody("multiply", "1"+strings.Repeat("0", 99), "10"), 422, "OUT_OF_RANGE"},
 		{"unknown path", http.MethodGet, "/api/v2/calculate", "", 404, "NOT_FOUND"},
 		{"root path", http.MethodGet, "/", "", 404, "NOT_FOUND"},
-		{"wrong method", http.MethodGet, calculatePath, "", 405, "METHOD_NOT_ALLOWED"},
+		{"double slash in path", http.MethodPost, "/api/v1//calculate", calculateBody("add", "1", "2"), 404, "NOT_FOUND"},
+		{"dot segment in path", http.MethodPost, "/api/v1/./calculate", calculateBody("add", "1", "2"), 404, "NOT_FOUND"},
+		{"trailing slash", http.MethodPost, calculatePath + "/", calculateBody("add", "1", "2"), 404, "NOT_FOUND"},
+		{"GET on calculate", http.MethodGet, calculatePath, "", 405, "METHOD_NOT_ALLOWED"},
+		{"POST on healthz", http.MethodPost, "/healthz", "", 405, "METHOD_NOT_ALLOWED"},
+		{"DELETE on healthz", http.MethodDelete, "/healthz", "", 405, "METHOD_NOT_ALLOWED"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -142,12 +168,8 @@ func TestErrorResponses(t *testing.T) {
 			if got := rec.Header().Get("Content-Type"); got != "application/json" {
 				t.Errorf("Content-Type = %q, want application/json", got)
 			}
-			var resp errorResponse
-			if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
-				t.Fatalf("body is not the error format: %s", rec.Body)
-			}
-			if resp.Error.Code != tt.code || resp.Error.Message == "" {
-				t.Errorf("error = %+v, want code %s and a message", resp.Error, tt.code)
+			if code := errorCode(t, rec); code != tt.code {
+				t.Errorf("code = %s, want %s", code, tt.code)
 			}
 			// Request errors are logged once, at info level, with their code
 			// and the same request ID the client received.
@@ -163,10 +185,29 @@ func TestErrorResponses(t *testing.T) {
 	}
 }
 
-func TestWrongMethodListsAllowedMethod(t *testing.T) {
-	rec, _ := send(t, http.MethodPut, calculatePath, "", nil)
-	if got := rec.Header().Get("Allow"); got != http.MethodPost {
-		t.Errorf("Allow = %q, want POST", got)
+func TestWrongMethodListsAllowedMethods(t *testing.T) {
+	tests := []struct{ method, path, allow string }{
+		{http.MethodPut, calculatePath, "POST"},
+		{http.MethodPost, "/healthz", "GET, HEAD"},
+	}
+	for _, tt := range tests {
+		rec, _ := send(t, tt.method, tt.path, "", nil)
+		if got := rec.Header().Get("Allow"); got != tt.allow {
+			t.Errorf("%s %s: Allow = %q, want %q", tt.method, tt.path, got, tt.allow)
+		}
+	}
+}
+
+func TestBodyLimitIsExactly4KiB(t *testing.T) {
+	body := `{"operation": "add", "operands": ["1", "2"]}`
+	atLimit := body + strings.Repeat(" ", maxBodyBytes-len(body))
+
+	if rec, _ := send(t, http.MethodPost, calculatePath, atLimit, nil); rec.Code != http.StatusOK {
+		t.Errorf("a %d-byte body got status %d, want 200", len(atLimit), rec.Code)
+	}
+	rec, _ := send(t, http.MethodPost, calculatePath, atLimit+" ", nil)
+	if rec.Code != http.StatusRequestEntityTooLarge || errorCode(t, rec) != "INPUT_TOO_LARGE" {
+		t.Errorf("a %d-byte body got status %d, want 413 INPUT_TOO_LARGE", len(atLimit)+1, rec.Code)
 	}
 }
 
@@ -206,38 +247,40 @@ func TestRequestID(t *testing.T) {
 	}
 }
 
-func TestPanicBecomesInternalError(t *testing.T) {
+// serveWith runs h through endpoint and the request-ID middleware, returning
+// the response and the single log line it must produce.
+func serveWith(t *testing.T, h handlerFunc) (*httptest.ResponseRecorder, logLine) {
+	t.Helper()
 	var logs bytes.Buffer
 	s := &server{logger: slog.New(slog.NewJSONHandler(&logs, nil))}
-	handler := withRequestID(s.endpoint(func(http.ResponseWriter, *http.Request) *apiError {
-		panic("boom")
-	}))
 	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, calculatePath, nil))
-
-	var resp errorResponse
-	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil || rec.Code != 500 || resp.Error.Code != "INTERNAL_ERROR" {
-		t.Errorf("got status %d, body %s; want 500 with INTERNAL_ERROR", rec.Code, rec.Body)
-	}
+	withRequestID(s.endpoint(h)).ServeHTTP(rec, httptest.NewRequest(http.MethodPost, calculatePath, nil))
 	lines := parseLogs(t, &logs)
-	if len(lines) != 2 {
-		t.Fatalf("got %d log lines, want a panic line and a request line: %v", len(lines), lines)
+	if len(lines) != 1 {
+		t.Fatalf("got %d log lines, want 1: %v", len(lines), lines)
 	}
-	panicLine, requestLine := lines[0], lines[1]
-	if panicLine["level"] != "ERROR" || panicLine["panic"] != "boom" || panicLine["stack"] == "" ||
-		panicLine["request_id"] != rec.Header().Get("X-Request-ID") {
-		t.Errorf("panic log line = %v, want ERROR with the panic value, stack and request ID", panicLine)
+	return rec, lines[0]
+}
+
+func TestPanicBecomesInternalError(t *testing.T) {
+	rec, line := serveWith(t, func(*http.Request) (any, *apiError) { panic("boom") })
+
+	if rec.Code != http.StatusInternalServerError || errorCode(t, rec) != "INTERNAL_ERROR" {
+		t.Errorf("got status %d, body %s; want 500 INTERNAL_ERROR", rec.Code, rec.Body)
 	}
-	if requestLine["level"] != "ERROR" || requestLine["code"] != "INTERNAL_ERROR" {
-		t.Errorf("request log line = %v, want ERROR with INTERNAL_ERROR", requestLine)
+	cause, _ := line["cause"].(string)
+	if line["level"] != "ERROR" || line["request_id"] != rec.Header().Get("X-Request-ID") ||
+		!strings.Contains(cause, "panic: boom") || !strings.Contains(cause, "goroutine ") {
+		t.Errorf("log line = %v, want ERROR with the request ID, the panic value and its stack", line)
+	}
+	if strings.Contains(rec.Body.String(), "boom") {
+		t.Errorf("response leaks the panic value: %s", rec.Body)
 	}
 }
 
 func TestAbortHandlerPanicIsReraised(t *testing.T) {
 	s := &server{logger: slog.New(slog.DiscardHandler)}
-	handler := s.endpoint(func(http.ResponseWriter, *http.Request) *apiError {
-		panic(http.ErrAbortHandler)
-	})
+	handler := s.endpoint(func(*http.Request) (any, *apiError) { panic(http.ErrAbortHandler) })
 	defer func() {
 		if p := recover(); p != http.ErrAbortHandler {
 			t.Errorf("recovered %v, want http.ErrAbortHandler to reach net/http", p)
@@ -247,22 +290,31 @@ func TestAbortHandlerPanicIsReraised(t *testing.T) {
 	t.Error("the panic was swallowed")
 }
 
-func TestEveryCalcCodeHasAStatus(t *testing.T) {
-	codes := []calc.Code{
-		calc.UnsupportedOperation, calc.WrongOperandCount, calc.InvalidNumber,
-		calc.InputTooLarge, calc.OutOfRange, calc.DivisionByZero,
+func TestCodeWithoutStatusBecomesInternalError(t *testing.T) {
+	rec, line := serveWith(t, func(*http.Request) (any, *apiError) {
+		return nil, &apiError{code: "SOMETHING_NEW", message: "a new kind of failure"}
+	})
+
+	if rec.Code != http.StatusInternalServerError || errorCode(t, rec) != "INTERNAL_ERROR" {
+		t.Errorf("got status %d, body %s; want 500 INTERNAL_ERROR", rec.Code, rec.Body)
 	}
-	for _, code := range codes {
-		if _, ok := calcStatuses[code]; !ok {
-			t.Errorf("calc code %s has no HTTP status", code)
-		}
+	if cause, _ := line["cause"].(string); line["level"] != "ERROR" || !strings.Contains(cause, "SOMETHING_NEW") {
+		t.Errorf("log line = %v, want ERROR with the unmapped code in the cause", line)
 	}
 }
 
-func TestUnexpectedCalcErrorsAreInternal(t *testing.T) {
-	for _, err := range []error{errors.New("not a calc error"), &calc.Error{Code: "SOMETHING_NEW"}} {
-		if got := fromCalc(err); got != errInternal {
-			t.Errorf("fromCalc(%v) = %+v, want INTERNAL_ERROR", err, got)
-		}
+func TestNonCalcErrorBecomesInternalError(t *testing.T) {
+	cause := errors.New("not a calc error")
+	if got := fromCalc(cause); got.code != codeInternal || got.cause != cause {
+		t.Errorf("fromCalc = %+v, want INTERNAL_ERROR keeping the cause", got)
+	}
+}
+
+// A body that fails to read for any reason but its size, such as a client that
+// disconnects mid-request, is reported as a malformed request.
+func TestUnreadableBodyIsInvalidRequest(t *testing.T) {
+	_, apiErr := decodeCalculateRequest(iotest.ErrReader(errors.New("connection reset")))
+	if apiErr != errMalformed {
+		t.Errorf("got %v, want errMalformed", apiErr)
 	}
 }

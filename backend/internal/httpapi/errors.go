@@ -7,12 +7,36 @@ import (
 	"github.com/FurkanCodes/calculator/backend/internal/calc"
 )
 
-// apiError is an error response: a code from the list in README.md, and the
-// one HTTP status that code always has.
+// Error codes that belong to the transport. The rest come from calc.
+const (
+	codeInvalidRequest   = "INVALID_REQUEST"
+	codeNotFound         = "NOT_FOUND"
+	codeMethodNotAllowed = "METHOD_NOT_ALLOWED"
+	codeInternal         = "INTERNAL_ERROR"
+)
+
+// statuses is the README's error table: every code the API can send, and the
+// one HTTP status that code always has. TestEveryCalcCodeHasAStatus reads
+// calc's source, so a new calc code fails the tests until it is added here.
+var statuses = map[string]int{
+	codeInvalidRequest:                http.StatusBadRequest,
+	string(calc.InvalidNumber):        http.StatusBadRequest,
+	string(calc.WrongOperandCount):    http.StatusBadRequest,
+	string(calc.UnsupportedOperation): http.StatusBadRequest,
+	codeNotFound:                      http.StatusNotFound,
+	codeMethodNotAllowed:              http.StatusMethodNotAllowed,
+	string(calc.InputTooLarge):        http.StatusRequestEntityTooLarge,
+	string(calc.DivisionByZero):       http.StatusUnprocessableEntity,
+	string(calc.OutOfRange):           http.StatusUnprocessableEntity,
+	codeInternal:                      http.StatusInternalServerError,
+}
+
+// apiError is a failed request. Its status comes from statuses, so a code can
+// never be sent with a different status.
 type apiError struct {
-	status  int
 	code    string
 	message string
+	cause   error // logged, never sent to the client
 }
 
 type errorResponse struct {
@@ -24,33 +48,18 @@ type errorBody struct {
 	Message string `json:"message"`
 }
 
-var errInternal = &apiError{http.StatusInternalServerError, "INTERNAL_ERROR", "An unexpected error occurred."}
-
-// calcStatuses gives each calc error code its HTTP status.
-var calcStatuses = map[calc.Code]int{
-	calc.UnsupportedOperation: http.StatusBadRequest,
-	calc.WrongOperandCount:    http.StatusBadRequest,
-	calc.InvalidNumber:        http.StatusBadRequest,
-	calc.InputTooLarge:        http.StatusRequestEntityTooLarge,
-	calc.OutOfRange:           http.StatusUnprocessableEntity,
-	calc.DivisionByZero:       http.StatusUnprocessableEntity,
+// internalError reports a bug. The client gets a generic message; the cause
+// goes to the log.
+func internalError(cause error) *apiError {
+	return &apiError{code: codeInternal, message: "An unexpected error occurred.", cause: cause}
 }
 
-// codeError builds a response for a calc error code, with that code's status.
-func codeError(code calc.Code, message string) *apiError {
-	status, ok := calcStatuses[code]
-	if !ok {
-		return errInternal
-	}
-	return &apiError{status, string(code), message}
-}
-
-// fromCalc converts an error from calc.Calculate. Calculate only returns a
-// *calc.Error with a known code, so anything else is a bug and becomes a 500.
+// fromCalc converts an error from calc.Calculate, which only returns
+// *calc.Error. Anything else is a bug.
 func fromCalc(err error) *apiError {
 	var calcErr *calc.Error
 	if !errors.As(err, &calcErr) {
-		return errInternal
+		return internalError(err)
 	}
-	return codeError(calcErr.Code, calcErr.Message)
+	return &apiError{code: string(calcErr.Code), message: calcErr.Message}
 }

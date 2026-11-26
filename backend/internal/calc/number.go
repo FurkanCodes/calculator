@@ -14,10 +14,8 @@ const (
 	// maxLength caps an operand string before any parsing work is done.
 	maxLength = 256
 
-	// minMagnitude and maxMagnitude bound a non-zero number's magnitude, so
-	// that 1e-100 <= |x| < 1e100. 1e-100 has magnitude -99, and every value
-	// below 1e100 has magnitude 100 or less.
-	minMagnitude = -99
+	// maxMagnitude bounds the range: a number is zero, or has
+	// 1e-maxMagnitude <= |x| < 1e+maxMagnitude.
 	maxMagnitude = 100
 )
 
@@ -32,18 +30,20 @@ func parseOperand(position int, s string) (decimal.Decimal, error) {
 		return decimal.Decimal{}, newError(InputTooLarge,
 			"Operand %d is longer than %d characters.", position, maxLength)
 	}
-	d, err := decimal.NewFromString(s)
-	if err != nil || !numberPattern.MatchString(s) {
+	if !numberPattern.MatchString(s) {
 		return decimal.Decimal{}, newError(InvalidNumber,
 			`Operand %d is not a valid number. Use a plain decimal such as "-12.5".`, position)
 	}
+	// NewFromString accepts every string numberPattern does; FuzzNumberPattern
+	// checks that, so the error is always nil here.
+	d, _ := decimal.NewFromString(s)
 	if significantDigits(d) > Precision {
 		return decimal.Decimal{}, newError(InputTooLarge,
 			"Operand %d has more than %d significant digits.", position, Precision)
 	}
 	if !inRange(d) {
 		return decimal.Decimal{}, newError(OutOfRange,
-			"Operand %d is outside the supported range of 1e-100 to 1e100.", position)
+			"Operand %d is outside the supported range of 1e-%d to 1e%d.", position, maxMagnitude, maxMagnitude)
 	}
 	return d, nil
 }
@@ -59,11 +59,11 @@ func significantDigits(d decimal.Decimal) int {
 	return d.Normalize().NumDigits()
 }
 
-// inRange reports whether d is zero, or has 1e-100 <= |d| < 1e100.
+// inRange reports whether d is zero, or has 1e-maxMagnitude <= |d| < 1e+maxMagnitude.
 func inRange(d decimal.Decimal) bool {
 	if d.IsZero() {
 		return true
 	}
-	m := magnitude(d)
-	return m >= minMagnitude && m <= maxMagnitude
+	abs := d.Abs()
+	return abs.Cmp(decimal.New(1, -maxMagnitude)) >= 0 && abs.Cmp(decimal.New(1, maxMagnitude)) < 0
 }

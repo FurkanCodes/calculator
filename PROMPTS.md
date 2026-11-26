@@ -205,3 +205,75 @@ Outcome: Added the server entry point (`cmd/calculator`, with graceful shutdown 
 > Contiue
 
 Outcome: Added `POST /api/v1/calculate`, with strict JSON decoding (operands must be strings), the error format for every code including JSON 404 and 405 responses, request IDs, panic recovery, and one log line per request. Checked it in the running container with the README's curl examples.
+
+### 15
+
+> Run the code quality review and report back
+
+Outcome: The skill can only be started from its slash command, so a separate reviewer agent was given the skill file and the branch, but none of Claude's reasoning about the code. Verdict: not approved. The two blockers were a silent 500 fallback in the error-to-status mapping, and a banned-call test that misses real violations (shopspring's `Avg`, its formatting globals, float literals) and leaves rule 4 unchecked. The fixes are listed in `stories.md`.
+
+### 16
+
+> Our readme is very bloated,
+>
+> [Pasted review notes recommending, section by section, what to keep, shorten, remove or move to `docs/`; that the AWS architecture be moved to `docs/production-design.md`; and a list of technical issues: consider cockroachdb/apd, verify Go 1.27.4, drop the API key architecture, keep the `exact` field and shared fixtures, account for non-invertible operations in the fuzz test, prioritise functional tests over CI smoke tests, include measured coverage, and don't describe unimplemented features as completed.]
+
+Outcome: README cut from 422 to 227 lines. It now describes only what is built, with planned parts marked and drawn with dashed lines in the diagram. The frontend and AWS designs moved to `docs/`, and the request and API-key sequence diagrams were removed. Measured coverage was added. The Go version and the fuzz test's handling of rounding, range and multiplication by zero were checked and needed no change.
+
+### 17
+
+> Create stories.md and write down everything we are suppose to implement and tick them one by one.
+
+Outcome: `stories.md` lists every deliverable in build order, with the brief's requirements marked, and ticks only items that are built and verified.
+
+### 18
+
+> [Pasted a target README outline: brief description and screenshot, Quick Start, Local Development, Supported Operations, API, Architecture (one diagram and a short explanation), Design Decisions (decimal precision, string-based numbers, stateless backend, validation and error handling, frontend state management), Testing and Coverage, Assumptions, AI Usage.]
+>
+> also lets put back microservice architectuer for the service it self
+
+Outcome: README reorganised to that outline. Its single architecture diagram now shows the service's internal layers: request ID, router, the endpoint wrapper and JSON decoding in `httpapi`, then the operation table, number rules and precision policy in `calc`, with the error path back to the wrapper.
+
+### 19
+
+> These findings sound good, fix them
+
+Outcome: Fixed all eight findings and the smaller gaps.
+- `httpapi` now has one table from error code to status, checked by a test that reads `calc`'s source, and a 500 logs its real cause.
+- Handlers return a body or an error and the wrapper writes both. Every route gets a JSON 405.
+- Request keys are exact, and operands are checked from the raw JSON.
+- `calc`'s banned-name scan was replaced by a type-checked allowlist that also enforces purity.
+- A new fuzz test covers the parse-order invariant, and the body-limit test now pins exactly 4 KiB.
+- Checked in the running container.
+
+### 20
+
+> continue
+
+Outcome: Reported the fixes from entry 19, then ran a second review of the whole backend branch. It found no structural problems, plus two input-handling bugs (duplicate keys accepted, some oversized bodies given 400) and several claims in the docs that went further than the code.
+
+### 21
+
+> Feel free to fire up couple more sub agents to work on other stories
+
+Outcome: Started two agents in their own worktrees, on branches built on `feature/backend-core`: one for `power`, `sqrt` and `percentage`, one for the frontend scaffold, Zod number schema, API client and reducer.
+
+### 22
+
+> yes fix them, and agree on both UI answers
+
+Outcome: Fixed every re-review finding.
+- The body is read in full and parsed once with `encoding/json/v2`.
+- Unclean paths get the JSON 404.
+- The purity and status-table tests type-check more cases.
+- The range limit is defined once.
+- The fuzz test compares results with `math/big`.
+- Planned content moved out of the README.
+
+Each new test was checked to fail on the old code. Recorded the `%` key behaviour (pocket-calculator style: `50 + 10 % =` gives `55`) and the long-result display (shrink, then scroll, with a copy button) in `docs/frontend-design.md` and `CLAUDE.md`.
+
+### 23
+
+> yes merge it, and add worktrees to gitignore
+
+Outcome: Fast-forwarded `main` to `feature/backend-core` and added `.claude/worktrees/` to `.gitignore`.
