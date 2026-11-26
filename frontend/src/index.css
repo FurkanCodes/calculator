@@ -44,6 +44,22 @@
   }
 }
 
+/* Text links in the docs panel: accent, underlined, with the focus ring. */
+@utility link {
+  color: var(--color-accent);
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  border-radius: 2px;
+  &:hover {
+    text-decoration-thickness: 2px;
+  }
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
 /* Base UI's ScrollArea hides the native scrollbar with these rules, normally in
    a <style> element it adds itself. main.tsx turns that element off, because
    nginx's Content Security Policy blocks inline styles, so they live here. */
