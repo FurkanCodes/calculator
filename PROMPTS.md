@@ -6,7 +6,7 @@ The brief asks for the prompts used. Every prompt is below, in order and as type
 
 - **Tool:** Claude Code (Claude Opus 5.5) for design discussion, documentation and code.
 - **Workflow:** I made the design decisions; Claude drafted documents and wrote code under the rules in [CLAUDE.md](CLAUDE.md). Larger pieces were built on separate branches by parallel agents. Each branch that changed calculation or API behaviour got an independent code review ([thermo-nuclear-code-quality-review](https://github.com/cursor/plugins/blob/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md)) before merging. I read, reviewed and tested every change.
-- **Other skills:** EGM brainstorm to stress-test the design, and readme-optimization for the README.
+- **Skills:** thermo-nuclear code quality review to keep the code clean, EGM brainstorm to stress-test the design, and readme-optimization for the README.
 
 ## Design
 
@@ -354,3 +354,9 @@ Checked against every line of the brief; added the rationale for the single `POS
 > tidy up the prompts, do not display our incompetency lol
 
 This file reorganised into phases with shorter result notes. The prompts themselves are unchanged.
+
+### 38
+
+> Other skills: EGM brainstorm to stress-test the design, and readme-optimization for the README. please state that we also use  nuclear code review for clean code
+
+The skills line now lists the thermo-nuclear code quality review first.
