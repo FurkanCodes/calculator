@@ -5,7 +5,7 @@ The brief asks for the prompts used. A short summary comes first; open a phase b
 ## Summary
 
 - **Tool:** Claude Code (Claude Opus 5.5) for design discussion, documentation and code.
-- **Workflow:** I made the design decisions; Claude drafted documents and wrote code under the rules in [CLAUDE.md](CLAUDE.md). Larger pieces were built on separate branches by parallel agents. Each branch that changed calculation or API behaviour got an independent code review ([thermo-nuclear-code-quality-review](https://github.com/cursor/plugins/blob/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md)) before merging. I read, reviewed and tested every change.
+- **Workflow:** I set the scope and the core design (decimal arithmetic with no floats, the backend's layers, one versioned endpoint); we worked out the details together, with Claude proposing options and rules and me choosing. Claude drafted documents and wrote code under the rules in [CLAUDE.md](CLAUDE.md). Larger pieces were built on separate branches by parallel agents. Each branch that changed calculation or API behaviour got an independent code review ([thermo-nuclear-code-quality-review](https://github.com/cursor/plugins/blob/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md)) before merging. I read, reviewed and tested every change.
 - **Skills:** thermo-nuclear code quality review to keep the code clean, EGM brainstorm to stress-test the design, and readme-optimization for the README.
 
 How the work went:
