@@ -12,7 +12,11 @@ export interface CalculationRequest {
   operands: string[]
 }
 
-/** Every code the API can send (CLAUDE.md rule 5), including nginx's SERVICE_UNAVAILABLE. */
+/**
+ * Every error code the API defines (CLAUDE.md rule 5), including the ones only
+ * the optional operations send (NEGATIVE_SQUARE_ROOT, INVALID_EXPONENT) and the
+ * one only nginx sends (SERVICE_UNAVAILABLE).
+ */
 export const ERROR_CODES = [
   'INVALID_REQUEST',
   'INVALID_NUMBER',
@@ -35,10 +39,10 @@ export type ErrorCode = (typeof ERROR_CODES)[number]
 const successSchema = z.object({ result: numberSchema, exact: z.boolean() })
 // A well-formed error with a code this client doesn't know yet (from a newer
 // backend, say) is still the service answering, so it is an error with code
-// null, whose message the UI shows, not "unreachable".
+// null, whose message the UI shows.
 const errorSchema = z.object({
   error: z.object({
-    code: z.string().transform((code) => (ERROR_CODES as readonly string[]).includes(code) ? (code as ErrorCode) : null),
+    code: z.union([z.enum(ERROR_CODES), z.string().transform(() => null)]),
     message: z.string(),
   }),
 })
@@ -47,10 +51,10 @@ export type CalculateOutcome =
   | { kind: 'success'; result: string; exact: boolean }
   /** The API answered with its JSON error format. code is null for a code this client doesn't know. */
   | { kind: 'error'; code: ErrorCode | null; message: string }
-  /** No answer, or one that is not the API's format, such as a proxy's HTML page. */
+  /** A JSON answer that breaks the API's contract, such as a 200 whose result is not a number. */
+  | { kind: 'invalidResponse' }
+  /** No answer, or a body that is not JSON, such as a proxy's HTML error page. */
   | { kind: 'unreachable' }
-  /** The caller aborted the request. */
-  | { kind: 'aborted' }
 
 /** Sends one calculation. It never throws: every outcome is a value. */
 export async function calculate(
@@ -68,9 +72,10 @@ export async function calculate(
     })
     body = await response.json()
   } catch {
-    // fetch rejects on a network failure or an abort; json() on a body that
-    // is not JSON, or on an abort while reading it.
-    return signal?.aborted ? { kind: 'aborted' } : { kind: 'unreachable' }
+    // fetch rejects on a network failure, json() on a body that is not JSON.
+    // An aborted request also ends here; nobody waits for its outcome, and the
+    // reducer ignores it because it answers a request no longer in flight.
+    return { kind: 'unreachable' }
   }
 
   if (response.ok) {
@@ -84,5 +89,5 @@ export async function calculate(
       return { kind: 'error', ...failure.data.error }
     }
   }
-  return { kind: 'unreachable' }
+  return { kind: 'invalidResponse' }
 }

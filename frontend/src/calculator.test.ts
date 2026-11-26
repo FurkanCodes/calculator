@@ -1,19 +1,37 @@
 import { describe, expect, it } from 'vitest'
+import type { CalculateOutcome } from './api'
 import {
   type Action,
+  applyEntryKey,
   type Digit,
-  editEntry,
+  type EntryKey,
   initialState,
   reducer,
-  type Settled,
+  type Result,
   type State,
+  type Typed,
 } from './calculator'
 
-function run(state: State, ...actions: Action[]): State {
-  return actions.reduce(reducer, state)
+/** A step is an action, or a function of the state, for answering the request in flight. */
+type Step = Action | ((state: State) => State)
+
+function run(state: State, ...steps: Step[]): State {
+  return steps.reduce((s, step) => (typeof step === 'function' ? step(s) : reducer(s, step)), state)
 }
 
-/** Types a number key by key: digits, '.' and a leading '-' for the sign key. */
+/** Answers the request in flight, as useCalculator would. */
+function answer(outcome: CalculateOutcome): Step {
+  return (state) => {
+    if (state.status !== 'Calculating') {
+      throw new Error(`answer() needs Calculating, not ${state.status}`)
+    }
+    return reducer(state, { type: 'settled', request: state.request, outcome })
+  }
+}
+
+const succeed = (text: string, exact = true) => answer({ kind: 'success', result: text, exact })
+
+/** Types a number key by key: digits, '.' and '-' for the sign key. */
 function type(text: string): Action[] {
   return [...text].map((c): Action => {
     if (c === '.') return { type: 'decimalPoint' }
@@ -22,46 +40,49 @@ function type(text: string): Action[] {
   })
 }
 
+const typed = (text: string): Typed => ({ origin: 'typed', text })
+const result = (text: string, exact = true): Result => ({ origin: 'result', text, exact })
+
 const digit = (d: Digit): Action => ({ type: 'digit', digit: d })
+const decimalPoint: EntryKey = { type: 'decimalPoint' }
+const toggleSign: EntryKey = { type: 'toggleSign' }
 const add: Action = { type: 'operator', operator: 'add' }
 const multiply: Action = { type: 'operator', operator: 'multiply' }
 const equals: Action = { type: 'equals' }
 const squareRoot: Action = { type: 'squareRoot' }
 const percent: Action = { type: 'percent' }
 const clear: Action = { type: 'clear' }
-const success = (result: string, exact = true): Action => ({
-  type: 'settled',
-  outcome: { kind: 'success', result, exact },
-})
-const divisionByZero: Settled = {
+
+const ONE_THIRD = '0.3333333333333333333333333333333333'
+const divisionByZero: CalculateOutcome = {
   kind: 'error',
   code: 'DIVISION_BY_ZERO',
   message: 'Cannot divide by zero.',
 }
 
 // One state of each kind, for the rules that hold in every state.
-const enteringFirst: State = { status: 'EnteringFirst', entry: '12' }
-const operatorChosen: State = { status: 'OperatorChosen', first: '12', operator: 'add', exact: true }
+const enteringFirst: State = { status: 'EnteringFirst', first: typed('12') }
+const operatorChosen: State = { status: 'OperatorChosen', first: typed('12'), operator: 'add' }
 const enteringSecond: State = {
   status: 'EnteringSecond',
-  first: '12',
+  first: typed('12'),
   operator: 'add',
-  entry: '3',
-  exact: true,
+  second: typed('3'),
 }
 const calculating: State = {
   status: 'Calculating',
   request: { operation: 'add', operands: ['12', '3'] },
   target: { to: 'ShowingResult' },
+  shown: typed('3'),
 }
-const showingResult: State = { status: 'ShowingResult', result: '15', exact: true }
+const showingResult: State = { status: 'ShowingResult', result: result('15') }
 const error: State = { status: 'Error', failure: { kind: 'unreachable' } }
 
 const everyState = { enteringFirst, operatorChosen, enteringSecond, calculating, showingResult, error }
 
 describe('the state diagram', () => {
-  it('starts in EnteringFirst with 0', () => {
-    expect(initialState).toEqual({ status: 'EnteringFirst', entry: '0' })
+  it('starts in EnteringFirst with a typed 0', () => {
+    expect(initialState).toEqual({ status: 'EnteringFirst', first: typed('0') })
   })
 
   it('EnteringFirst --operator--> OperatorChosen', () => {
@@ -73,6 +94,14 @@ describe('the state diagram', () => {
       status: 'Calculating',
       request: { operation: 'sqrt', operands: ['12'] },
       target: { to: 'ShowingResult' },
+      shown: typed('12'),
+    })
+  })
+
+  it('EnteringFirst --%--> Calculating', () => {
+    expect(run(enteringFirst, percent)).toMatchObject({
+      status: 'Calculating',
+      request: { operation: 'percentage', operands: ['12', '1'] },
     })
   })
 
@@ -86,48 +115,85 @@ describe('the state diagram', () => {
 
   it('EnteringSecond --operator--> Calculating, remembering the operator', () => {
     expect(run(enteringSecond, multiply)).toEqual({
-      status: 'Calculating',
-      request: { operation: 'add', operands: ['12', '3'] },
+      ...calculating,
       target: { to: 'OperatorChosen', operator: 'multiply' },
     })
   })
 
-  it('Calculating --success--> ShowingResult, keeping the exact flag', () => {
-    expect(run(calculating, success('15'))).toEqual(showingResult)
-    expect(run(calculating, success('0.3333333333333333333333333333333333', false))).toEqual({
+  it('EnteringSecond --%--> Calculating', () => {
+    expect(run(enteringSecond, percent)).toEqual({
+      status: 'Calculating',
+      request: { operation: 'percentage', operands: ['3', '12'] },
+      target: { to: 'EnteringSecond', first: typed('12'), operator: 'add' },
+      shown: typed('3'),
+    })
+  })
+
+  it('Calculating --result--> ShowingResult, keeping the exact flag', () => {
+    expect(run(calculating, succeed('15'))).toEqual(showingResult)
+    expect(run(calculating, succeed(ONE_THIRD, false))).toEqual({
       status: 'ShowingResult',
-      result: '0.3333333333333333333333333333333333',
-      exact: false,
+      result: result(ONE_THIRD, false),
     })
   })
 
-  it('Calculating --error--> Error', () => {
-    expect(run(calculating, { type: 'settled', outcome: divisionByZero })).toEqual({
-      status: 'Error',
-      failure: divisionByZero,
+  it('Calculating --result, after an operator--> OperatorChosen, with the result as the first number', () => {
+    expect(run(enteringSecond, multiply, succeed(ONE_THIRD, false))).toEqual({
+      status: 'OperatorChosen',
+      first: result(ONE_THIRD, false),
+      operator: 'multiply',
     })
   })
 
-  it('Calculating --no connection--> Error', () => {
-    expect(run(calculating, { type: 'settled', outcome: { kind: 'unreachable' } })).toEqual(error)
+  it('Calculating --result, after %--> EnteringSecond, with the result as the second number', () => {
+    expect(run(enteringSecond, percent, succeed('0.36'))).toEqual({
+      ...enteringSecond,
+      second: result('0.36'),
+    })
+  })
+
+  it.each<[string, CalculateOutcome]>([
+    ['an API error', divisionByZero],
+    ['an error with an unknown code', { kind: 'error', code: null, message: 'New.' }],
+    ['an invalid response', { kind: 'invalidResponse' }],
+    ['no connection', { kind: 'unreachable' }],
+  ])('Calculating --%s--> Error', (_name, outcome) => {
+    expect(run(calculating, answer(outcome))).toEqual({ status: 'Error', failure: outcome })
   })
 
   it('ShowingResult --operator--> OperatorChosen, with the result as the first number', () => {
-    expect(run(showingResult, multiply)).toEqual({
+    const rounded: State = { status: 'ShowingResult', result: result(ONE_THIRD, false) }
+    expect(run(rounded, multiply)).toEqual({
       status: 'OperatorChosen',
-      first: '15',
+      first: result(ONE_THIRD, false),
       operator: 'multiply',
-      exact: true,
     })
-    expect(run({ ...showingResult, exact: false }, multiply)).toMatchObject({ exact: false })
+  })
+
+  it('ShowingResult --square root--> Calculating', () => {
+    expect(run(showingResult, squareRoot)).toEqual({
+      status: 'Calculating',
+      request: { operation: 'sqrt', operands: ['15'] },
+      target: { to: 'ShowingResult' },
+      shown: result('15'),
+    })
+  })
+
+  it('ShowingResult --%--> Calculating', () => {
+    expect(run(showingResult, percent)).toEqual({
+      status: 'Calculating',
+      request: { operation: 'percentage', operands: ['15', '1'] },
+      target: { to: 'ShowingResult' },
+      shown: result('15'),
+    })
   })
 
   it('ShowingResult --digit--> EnteringFirst, starting a new number', () => {
-    expect(run(showingResult, digit('7'))).toEqual({ status: 'EnteringFirst', entry: '7' })
+    expect(run(showingResult, digit('7'))).toEqual({ status: 'EnteringFirst', first: typed('7') })
   })
 
   it('Error --digit--> EnteringFirst, starting a new number', () => {
-    expect(run(error, digit('7'))).toEqual({ status: 'EnteringFirst', entry: '7' })
+    expect(run(error, digit('7'))).toEqual({ status: 'EnteringFirst', first: typed('7') })
   })
 })
 
@@ -140,8 +206,8 @@ describe('Clear', () => {
 describe('Calculating', () => {
   it.each<[string, Action]>([
     ['a digit', digit('1')],
-    ['the decimal point', { type: 'decimalPoint' }],
-    ['the sign key', { type: 'toggleSign' }],
+    ['the decimal point', decimalPoint],
+    ['the sign key', toggleSign],
     ['an operator', add],
     ['equals', equals],
     ['square root', squareRoot],
@@ -150,201 +216,144 @@ describe('Calculating', () => {
     expect(reducer(calculating, action)).toBe(calculating)
   })
 
-  it('makes a result started by an operator the first number, with that operator chosen', () => {
-    const started = run(enteringSecond, multiply)
-    expect(run(started, success('15', false))).toEqual({
-      status: 'OperatorChosen',
-      first: '15',
-      operator: 'multiply',
-      exact: false,
-    })
+  it('ignores the answer to a request that is no longer in flight', () => {
+    const old = run(initialState, digit('2'), add, digit('3'), equals)
+    if (old.status !== 'Calculating') throw new Error('expected Calculating')
+
+    const current = run(old, clear, digit('7'), add, digit('1'), equals)
+    expect(current).toMatchObject({ request: { operation: 'add', operands: ['7', '1'] } })
+
+    const late: Action = {
+      type: 'settled',
+      request: old.request,
+      outcome: { kind: 'success', result: '5', exact: true },
+    }
+    expect(reducer(current, late)).toBe(current)
   })
 
-  it('turns an error from an operator-started request into Error', () => {
-    const started = run(enteringSecond, multiply)
-    expect(run(started, { type: 'settled', outcome: divisionByZero })).toEqual({
-      status: 'Error',
-      failure: divisionByZero,
-    })
+  it('ignores an answer to an equal request that is not the same object', () => {
+    if (calculating.status !== 'Calculating') throw new Error('expected Calculating')
+    const copy = { ...calculating.request }
+    expect(
+      reducer(calculating, { type: 'settled', request: copy, outcome: { kind: 'unreachable' } }),
+    ).toBe(calculating)
   })
 })
 
-describe('a settled request outside Calculating', () => {
+describe('an answer outside Calculating', () => {
   it.each(Object.entries(everyState).filter(([name]) => name !== 'calculating'))(
     'is ignored in %s',
     (_name, state) => {
-      expect(reducer(state, success('1'))).toBe(state)
+      if (calculating.status !== 'Calculating') throw new Error('expected Calculating')
+      const settled: Action = { type: 'settled', request: calculating.request, outcome: { kind: 'unreachable' } }
+      expect(reducer(state, settled)).toBe(state)
     },
   )
 })
 
-describe('entry keys', () => {
+describe('entry keys on a typed number', () => {
   it('stay in EnteringFirst', () => {
-    expect(run(initialState, ...type('-12.50'))).toEqual({ status: 'EnteringFirst', entry: '-12.50' })
+    expect(run(initialState, ...type('-12.50'))).toEqual({ status: 'EnteringFirst', first: typed('-12.50') })
   })
 
-  it('stay in EnteringSecond, and mark a typed number exact', () => {
-    const rounded: State = { ...enteringSecond, entry: '0.5', exact: false }
-    expect(run(rounded, digit('1'))).toEqual({ ...rounded, entry: '0.51', exact: true })
-    expect(run(rounded, { type: 'decimalPoint' })).toBe(rounded) // 0.5. is not a number
-  })
-
-  it('keep a rounded second number rounded when only its sign changes', () => {
-    const rounded: State = { ...enteringSecond, entry: '0.5', exact: false }
-    expect(run(rounded, { type: 'toggleSign' })).toEqual({ ...rounded, entry: '-0.5' })
+  it('stay in EnteringSecond', () => {
+    expect(run(enteringSecond, ...type('.5-'))).toEqual({ ...enteringSecond, second: typed('-3.5') })
   })
 
   it('start the second number from 0 after an operator', () => {
-    expect(run(operatorChosen, { type: 'decimalPoint' })).toMatchObject({
-      status: 'EnteringSecond',
-      entry: '0.',
-    })
-    expect(run(operatorChosen, { type: 'toggleSign' })).toMatchObject({
-      status: 'EnteringSecond',
-      entry: '-0',
-    })
+    expect(run(operatorChosen, decimalPoint)).toEqual({ ...enteringSecond, second: typed('0.') })
+    expect(run(operatorChosen, toggleSign)).toEqual({ ...enteringSecond, second: typed('-0') })
   })
 
-  it.each([showingResult, error])('start a new first number from 0 in $status', (state) => {
-    expect(run(state, { type: 'decimalPoint' })).toEqual({ status: 'EnteringFirst', entry: '0.' })
-    expect(run(state, { type: 'toggleSign' })).toEqual({ status: 'EnteringFirst', entry: '-0' })
+  it('start a new first number from 0 after an error', () => {
+    expect(run(error, decimalPoint)).toEqual({ status: 'EnteringFirst', first: typed('0.') })
+    expect(run(error, toggleSign)).toEqual({ status: 'EnteringFirst', first: typed('-0') })
   })
 
   it('leave the state unchanged when a key is rejected', () => {
-    const state: State = { status: 'EnteringFirst', entry: '1.5' }
-    expect(reducer(state, { type: 'decimalPoint' })).toBe(state)
-    const second: State = { ...enteringSecond, entry: '1.5' }
-    expect(reducer(second, { type: 'decimalPoint' })).toBe(second)
+    const first: State = { status: 'EnteringFirst', first: typed('1.5') }
+    expect(reducer(first, decimalPoint)).toBe(first)
+    const second: State = { ...enteringSecond, second: typed('1.5') }
+    expect(reducer(second, decimalPoint)).toBe(second)
   })
 
   it('drop a trailing decimal point from the operand', () => {
-    expect(run(initialState, ...type('5.'), add)).toMatchObject({ first: '5' })
+    expect(run(initialState, ...type('5.'), add)).toEqual({
+      status: 'OperatorChosen',
+      first: typed('5'),
+      operator: 'add',
+    })
     expect(run(operatorChosen, ...type('3.'), equals)).toMatchObject({
       request: { operation: 'add', operands: ['12', '3'] },
+      shown: typed('3.'),
     })
   })
 })
 
-describe('editEntry', () => {
-  it('replaces a lone zero with the digit', () => {
-    expect(editEntry('0', { type: 'digit', digit: '5' })).toBe('5')
-    expect(editEntry('-0', { type: 'digit', digit: '5' })).toBe('-5')
-    expect(editEntry('0', { type: 'digit', digit: '0' })).toBe('0')
-    expect(editEntry('0.', { type: 'digit', digit: '0' })).toBe('0.0')
+describe('entry keys on a result', () => {
+  const rounded: State = { status: 'ShowingResult', result: result(ONE_THIRD, false) }
+
+  it('a digit or the decimal point starts a new typed number', () => {
+    expect(run(rounded, digit('0'))).toEqual({ status: 'EnteringFirst', first: typed('0') })
+    expect(run(rounded, decimalPoint)).toEqual({ status: 'EnteringFirst', first: typed('0.') })
   })
 
-  it('toggles the sign', () => {
-    expect(editEntry('5', { type: 'toggleSign' })).toBe('-5')
-    expect(editEntry('-5', { type: 'toggleSign' })).toBe('5')
-    expect(editEntry('0', { type: 'toggleSign' })).toBe('-0')
+  it('the sign key negates a shown result and keeps it marked as rounded', () => {
+    const negated = run(rounded, toggleSign)
+    expect(negated).toEqual({ status: 'ShowingResult', result: result(`-${ONE_THIRD}`, false) })
+    expect(run(negated, toggleSign)).toEqual(rounded)
   })
 
-  it('rejects a second decimal point', () => {
-    expect(editEntry('1.5', { type: 'decimalPoint' })).toBe('1.5')
+  it('the sign key leaves a zero result as it is', () => {
+    const zero: State = { status: 'ShowingResult', result: result('0') }
+    expect(reducer(zero, toggleSign)).toBe(zero)
   })
 
-  it('rejects a 257th character', () => {
-    const longest = `1.${'0'.repeat(254)}` // 256 characters, a valid operand
-    expect(editEntry(longest, { type: 'digit', digit: '0' })).toBe(longest)
-    expect(editEntry(longest, { type: 'toggleSign' })).toBe(longest)
-  })
-
-  it('rejects a decimal point that no digit could follow', () => {
-    // With 255 characters, a point is the 256th and leaves no room for a digit.
-    expect(editEntry('0'.repeat(255), { type: 'decimalPoint' })).toBe('0'.repeat(255))
-    expect(editEntry('0'.repeat(254), { type: 'decimalPoint' })).toBe(`${'0'.repeat(254)}.`)
-  })
-
-  it('rejects a 35th significant digit', () => {
-    const entry = '1'.repeat(34)
-    expect(editEntry(entry, { type: 'digit', digit: '1' })).toBe(entry)
-    expect(editEntry(entry, { type: 'digit', digit: '0' })).toBe(`${entry}0`) // trailing zero
-  })
-
-  it('rejects a number outside the range', () => {
-    const largest = '9'.repeat(34) + '0'.repeat(66) // 100 digits, just under 1e100
-    expect(editEntry(largest, { type: 'digit', digit: '0' })).toBe(largest)
-    const smallest = `0.${'0'.repeat(99)}` // the next digit is the 1e-100 place
-    expect(editEntry(smallest, { type: 'digit', digit: '1' })).toBe(`${smallest}1`)
-    expect(editEntry(`${smallest}0`, { type: 'digit', digit: '1' })).toBe(`${smallest}0`)
-  })
-})
-
-describe('other keys', () => {
-  it('equals does nothing before a second number is typed', () => {
-    for (const state of [enteringFirst, operatorChosen, showingResult, error]) {
-      expect(reducer(state, equals)).toBe(state)
-    }
-  })
-
-  it('a second operator replaces the first', () => {
-    expect(run(operatorChosen, multiply)).toEqual({ ...operatorChosen, operator: 'multiply' })
-  })
-
-  it('square root takes the shown result', () => {
-    expect(run(showingResult, squareRoot)).toEqual({
-      status: 'Calculating',
-      request: { operation: 'sqrt', operands: ['15'] },
-      target: { to: 'ShowingResult' },
-    })
-  })
-
-  it('square root is ignored while an operation is pending, and after an error', () => {
-    for (const state of [operatorChosen, enteringSecond, error]) {
-      expect(reducer(state, squareRoot)).toBe(state)
-    }
-  })
-
-  it('operators are ignored after an error', () => {
-    expect(reducer(error, add)).toBe(error)
+  it('the sign key leaves a result alone when the minus sign would make it too long', () => {
+    const longest: State = { status: 'ShowingResult', result: result(`1.${'0'.repeat(254)}`) }
+    expect(reducer(longest, toggleSign)).toBe(longest)
   })
 })
 
 describe('the % key', () => {
   it('on the second number, sends second% of first and puts the result in its place', () => {
     const state = run(initialState, ...type('50'), add, ...type('10'), percent)
-    expect(state).toEqual({
+    expect(state).toMatchObject({
       status: 'Calculating',
       request: { operation: 'percentage', operands: ['10', '50'] },
-      target: { to: 'EnteringSecond', first: '50', operator: 'add' },
     })
 
-    const replaced = run(state, success('5'))
+    const replaced = run(state, succeed('5'))
     expect(replaced).toEqual({
       status: 'EnteringSecond',
-      first: '50',
+      first: typed('50'),
       operator: 'add',
-      entry: '5',
-      exact: true,
+      second: result('5'),
     })
     expect(run(replaced, equals)).toMatchObject({
       request: { operation: 'add', operands: ['50', '5'] },
     })
   })
 
-  it('on the second number, keeps a rounded result marked as rounded', () => {
-    const state = run(enteringSecond, percent, success('0.3333333333333333333333333333333333', false))
-    expect(state).toMatchObject({ status: 'EnteringSecond', exact: false })
+  it('then a digit starts a new second number: 50 + 10 % 3 = sends add(50, 3)', () => {
+    const state = run(initialState, ...type('50'), add, ...type('10'), percent, succeed('5'), digit('3'), equals)
+    expect(state).toMatchObject({ request: { operation: 'add', operands: ['50', '3'] } })
+  })
+
+  it('then a digit replaces a rounded result with a typed number', () => {
+    const state = run(enteringSecond, percent, succeed(ONE_THIRD, false), digit('7'))
+    expect(state).toEqual({ ...enteringSecond, second: typed('7') })
+  })
+
+  it('then the sign key negates the result and keeps it marked as rounded', () => {
+    const state = run(enteringSecond, percent, succeed(ONE_THIRD, false), toggleSign)
+    expect(state).toEqual({ ...enteringSecond, second: result(`-${ONE_THIRD}`, false) })
   })
 
   it('on the first number, sends value% of 1 and shows the result', () => {
-    const state = run(initialState, ...type('10'), percent)
-    expect(state).toEqual({
-      status: 'Calculating',
-      request: { operation: 'percentage', operands: ['10', '1'] },
-      target: { to: 'ShowingResult' },
-    })
-    const shown = run(state, success('0.1'))
-    expect(shown).toEqual({ status: 'ShowingResult', result: '0.1', exact: true })
-    expect(run(shown, add)).toMatchObject({ status: 'OperatorChosen', first: '0.1' })
-  })
-
-  it('on a shown result, sends result% of 1', () => {
-    expect(run(showingResult, percent)).toEqual({
-      status: 'Calculating',
-      request: { operation: 'percentage', operands: ['15', '1'] },
-      target: { to: 'ShowingResult' },
-    })
+    const shown = run(initialState, ...type('10'), percent, succeed('0.1'))
+    expect(shown).toEqual({ status: 'ShowingResult', result: result('0.1') })
+    expect(run(shown, add)).toEqual({ status: 'OperatorChosen', first: result('0.1'), operator: 'add' })
   })
 
   it('is ignored when an operator is chosen but no second number is typed', () => {
@@ -359,10 +368,82 @@ describe('the % key', () => {
     ['the second number', run(enteringSecond, percent)],
     ['the first number', run(enteringFirst, percent)],
   ])('on %s, turns an error into Error', (_name, state) => {
-    expect(run(state, { type: 'settled', outcome: divisionByZero })).toEqual({
-      status: 'Error',
-      failure: divisionByZero,
-    })
+    expect(run(state, answer(divisionByZero))).toEqual({ status: 'Error', failure: divisionByZero })
+  })
+})
+
+describe('other keys', () => {
+  it('equals does nothing before a second number is typed', () => {
+    for (const state of [enteringFirst, operatorChosen, showingResult, error]) {
+      expect(reducer(state, equals)).toBe(state)
+    }
+  })
+
+  it('a second operator replaces the first', () => {
+    expect(run(operatorChosen, multiply)).toEqual({ ...operatorChosen, operator: 'multiply' })
+  })
+
+  it('square root is ignored while an operation is pending, and after an error', () => {
+    for (const state of [operatorChosen, enteringSecond, error]) {
+      expect(reducer(state, squareRoot)).toBe(state)
+    }
+  })
+
+  it('operators are ignored after an error', () => {
+    expect(reducer(error, add)).toBe(error)
+  })
+})
+
+describe('applyEntryKey on a typed number', () => {
+  const edit = (text: string, key: EntryKey) => applyEntryKey(typed(text), key).text
+  const d = (digit: Digit): EntryKey => ({ type: 'digit', digit })
+
+  it('replaces a lone zero with the digit', () => {
+    expect(edit('0', d('5'))).toBe('5')
+    expect(edit('-0', d('5'))).toBe('-5')
+    expect(edit('0', d('0'))).toBe('0')
+    expect(edit('0.', d('0'))).toBe('0.0')
+  })
+
+  it('toggles the sign, including on 0 so a negative number can be typed sign first', () => {
+    expect(edit('5', toggleSign)).toBe('-5')
+    expect(edit('-5', toggleSign)).toBe('5')
+    expect(edit('0', toggleSign)).toBe('-0')
+  })
+
+  it('returns the same object when the key changes nothing', () => {
+    const shown = typed('1.5')
+    expect(applyEntryKey(shown, decimalPoint)).toBe(shown)
+  })
+
+  it('rejects a second decimal point', () => {
+    expect(edit('1.5', decimalPoint)).toBe('1.5')
+  })
+
+  it('rejects a 257th character', () => {
+    const longest = `1.${'0'.repeat(254)}` // 256 characters, a valid operand
+    expect(edit(longest, d('0'))).toBe(longest)
+    expect(edit(longest, toggleSign)).toBe(longest)
+  })
+
+  it('rejects a decimal point that no digit could follow', () => {
+    // With 255 characters, a point is the 256th and leaves no room for a digit.
+    expect(edit('0'.repeat(255), decimalPoint)).toBe('0'.repeat(255))
+    expect(edit('0'.repeat(254), decimalPoint)).toBe(`${'0'.repeat(254)}.`)
+  })
+
+  it('rejects a 35th significant digit', () => {
+    const entry = '1'.repeat(34)
+    expect(edit(entry, d('1'))).toBe(entry)
+    expect(edit(entry, d('0'))).toBe(`${entry}0`) // a trailing zero is not significant
+  })
+
+  it('rejects a number outside the range', () => {
+    const largest = '9'.repeat(34) + '0'.repeat(66) // 100 digits, just under 1e100
+    expect(edit(largest, d('0'))).toBe(largest)
+    const smallest = `0.${'0'.repeat(99)}` // the next digit is the 1e-100 place
+    expect(edit(smallest, d('1'))).toBe(`${smallest}1`)
+    expect(edit(`${smallest}0`, d('1'))).toBe(`${smallest}0`)
   })
 })
 
@@ -370,8 +451,8 @@ describe('a whole calculation', () => {
   it('runs 2 + 3 × 4 left to right, each result becoming the next first number', () => {
     let state = run(initialState, digit('2'), add, digit('3'), multiply)
     expect(state).toMatchObject({ request: { operation: 'add', operands: ['2', '3'] } })
-    state = run(state, success('5'), digit('4'), equals)
+    state = run(state, succeed('5'), digit('4'), equals)
     expect(state).toMatchObject({ request: { operation: 'multiply', operands: ['5', '4'] } })
-    expect(run(state, success('20'))).toEqual({ status: 'ShowingResult', result: '20', exact: true })
+    expect(run(state, succeed('20'))).toEqual({ status: 'ShowingResult', result: result('20') })
   })
 })

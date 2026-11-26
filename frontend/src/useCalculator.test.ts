@@ -1,9 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Action } from './calculator'
+import type { Key } from './calculator'
 import { useCalculator } from './useCalculator'
 
-const keys: Action[] = [
+const keys: Key[] = [
   { type: 'digit', digit: '2' },
   { type: 'operator', operator: 'add' },
   { type: 'digit', digit: '3' },
@@ -30,10 +30,10 @@ function deferredFetch() {
 
 function setup() {
   const { result, unmount } = renderHook(() => useCalculator())
-  const press = (...actions: Action[]) => {
+  const press = (...pressed: Key[]) => {
     act(() => {
-      for (const action of actions) {
-        result.current[1](action)
+      for (const key of pressed) {
+        result.current.press(key)
       }
     })
   }
@@ -51,13 +51,13 @@ describe('useCalculator', () => {
 
     press(...keys)
 
-    expect(result.current[0].status).toBe('Calculating')
+    expect(result.current.state.status).toBe('Calculating')
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(calls[0]?.init.body).toBe('{"operation":"add","operands":["2","3"]}')
 
     calls[0]?.answer(200, { result: '5', exact: true })
     await waitFor(() => {
-      expect(result.current[0]).toEqual({ status: 'ShowingResult', result: '5', exact: true })
+      expect(result.current.state).toEqual({ status: 'ShowingResult', result: { origin: 'result', text: '5', exact: true } })
     })
   })
 
@@ -81,7 +81,7 @@ describe('useCalculator', () => {
     calls[0]?.answer(422, { error: { code: 'DIVISION_BY_ZERO', message: 'Cannot divide by zero.' } })
 
     await waitFor(() => {
-      expect(result.current[0]).toEqual({
+      expect(result.current.state).toEqual({
         status: 'Error',
         failure: { kind: 'error', code: 'DIVISION_BY_ZERO', message: 'Cannot divide by zero.' },
       })
@@ -99,7 +99,7 @@ describe('useCalculator', () => {
     calls[0]?.answer(200, { result: '5', exact: true })
     // Let the late answer's promise chain run before checking it changed nothing.
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
-    expect(result.current[0]).toEqual({ status: 'EnteringFirst', entry: '0' })
+    expect(result.current.state).toEqual({ status: 'EnteringFirst', first: { origin: 'typed', text: '0' } })
   })
 
   it('settles only the latest request after Clear and a new calculation', async () => {
@@ -114,15 +114,15 @@ describe('useCalculator', () => {
     // The cleared request answers while the new one is still in flight.
     calls[0]?.answer(200, { result: '999', exact: true })
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
-    expect(result.current[0].status).toBe('Calculating')
+    expect(result.current.state.status).toBe('Calculating')
 
     calls[1]?.answer(200, { result: '5', exact: true })
     await waitFor(() => {
-      expect(result.current[0]).toEqual({ status: 'ShowingResult', result: '5', exact: true })
+      expect(result.current.state).toEqual({ status: 'ShowingResult', result: { origin: 'result', text: '5', exact: true } })
     })
   })
 
-  it('does not settle when the aborted fetch rejects', async () => {
+  it('ignores the outcome of an aborted fetch that rejects', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(
@@ -140,7 +140,7 @@ describe('useCalculator', () => {
     press({ type: 'clear' })
     await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
 
-    expect(result.current[0]).toEqual({ status: 'EnteringFirst', entry: '0' })
+    expect(result.current.state).toEqual({ status: 'EnteringFirst', first: { origin: 'typed', text: '0' } })
   })
 
   it('aborts the request on unmount', () => {

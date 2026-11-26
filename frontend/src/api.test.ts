@@ -13,21 +13,6 @@ function respondJSON(status: number, body: unknown) {
   return respond(status, JSON.stringify(body))
 }
 
-/** A fetch that never answers, and rejects as the real one does when aborted. */
-function hangUntilAborted() {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(
-      (_url: string, init: RequestInit) =>
-        new Promise<Response>((_resolve, reject) => {
-          init.signal?.addEventListener('abort', () => {
-            reject(new DOMException('The operation was aborted.', 'AbortError'))
-          })
-        }),
-    ),
-  )
-}
-
 afterEach(() => {
   vi.unstubAllGlobals()
 })
@@ -77,10 +62,11 @@ describe('calculate', () => {
     ['a success body without exact', 200, { result: '1' }],
     ['an error body with a 200 status', 200, { error: { code: 'OUT_OF_RANGE', message: 'x' } }],
     ['an error without a message', 400, { error: { code: 'INVALID_NUMBER' } }],
+    ['an error code that is not a string', 400, { error: { code: 7, message: 'x' } }],
     ['a success body with an error status', 500, { result: '1', exact: true }],
-  ])('treats %s as unreachable', async (_name, status, body) => {
+  ])('treats %s as an invalid response', async (_name, status, body) => {
     respondJSON(status, body)
-    expect(await calculate(divide)).toEqual({ kind: 'unreachable' })
+    expect(await calculate(divide)).toEqual({ kind: 'invalidResponse' })
   })
 
   it('keeps the message of an error with a code it does not know', async () => {
@@ -96,27 +82,5 @@ describe('calculate', () => {
   it('treats a network failure as unreachable', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('Failed to fetch'))))
     expect(await calculate(divide)).toEqual({ kind: 'unreachable' })
-  })
-
-  it('reports an aborted request as aborted', async () => {
-    hangUntilAborted()
-    const controller = new AbortController()
-
-    const outcome = calculate(divide, controller.signal)
-    controller.abort()
-
-    expect(await outcome).toEqual({ kind: 'aborted' })
-  })
-
-  it('reports an abort while the body is read as aborted', async () => {
-    const controller = new AbortController()
-    const response = new Response('{}', { status: 200 })
-    vi.spyOn(response, 'json').mockImplementation(() => {
-      controller.abort()
-      return Promise.reject(new DOMException('The operation was aborted.', 'AbortError'))
-    })
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve(response)))
-
-    expect(await calculate(divide, controller.signal)).toEqual({ kind: 'aborted' })
   })
 })
