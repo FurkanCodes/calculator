@@ -277,3 +277,27 @@ Each new test was checked to fail on the old code. Recorded the `%` key behaviou
 > yes merge it, and add worktrees to gitignore
 
 Outcome: Fast-forwarded `main` to `feature/backend-core` and added `.claude/worktrees/` to `.gitignore`.
+
+### 24
+
+> allow the mermaid install, and fix the unknown-code handling also we have other subagents ahndlimng otjer stories too communicate and see where the project lies right now I will take alook with you
+
+Outcome: Rendered and checked the frontend state diagram, then pushed `feature/frontend-core` after rebasing it onto `main`. A well-formed error with an unknown code is now kept as an error with the backend's message, not "unreachable". Told the operations agent that `main` had moved, and asked it to rebase. Summarised where the project stands.
+
+### 25
+
+> yes start the visual design artifact
+
+Outcome: With no design system and the "precise instrument" direction (both chosen by the user), drafted a design canvas with three versions as phone screens (Ledger, Graphite, Blueprint) and a sheet of display states. Checked and pushed `feature/optional-operations` after its rebase, adding `percentage` to the `math/big` fuzz reference. Started code reviews of both open branches.
+
+### 26
+
+> lets do A
+
+Outcome: Chose "Ledger" as the visual design. Wrote its spec into `docs/frontend-design.md`: type, colour tokens with contrast checked, layout, keypad, keyboard map and display states. Fixed the dimmed "calculating" colour, which failed contrast in the draft. Closed the last open decision in `CLAUDE.md`.
+
+### 27
+
+> yes fix them, negate the shown result
+
+Outcome: Sent all ten findings from the frontend-core review to the frontend agent. The main ones: the `%` result could be edited by typing; answers were not tied to their request; the no-arithmetic lint check had gaps; broken responses were reported as "unreachable". Decision recorded: the sign key negates a shown result and keeps its rounded flag. Told the UI agent about the coming API changes (`press` in place of `dispatch`, an `invalidResponse` outcome).
