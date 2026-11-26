@@ -18,8 +18,8 @@ it('links to the Swagger UI, the OpenAPI description and the source, each in a n
   }
 })
 
-it('has a section for using it, how it works, the decisions and how it was built', () => {
+it('has a section for using it and one for how it works', () => {
   render(<Docs />)
   const titles = screen.getAllByRole('heading', { level: 3 }).map((heading) => heading.textContent)
-  expect(titles).toEqual(['Using it', 'How it works', 'Why it is built this way', 'How it was built'])
+  expect(titles).toEqual(['Using it', 'How it works'])
 })

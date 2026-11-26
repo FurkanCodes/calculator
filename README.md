@@ -12,7 +12,7 @@ Requires Docker with Compose v2.
 docker compose up -d --build
 ```
 
-- App: <http://localhost:8080>, with a short guide beside the calculator (how to use it, how it works, why) and links to the API docs
+- App: <http://localhost:8080>, with a short guide beside the calculator and links to the API docs
 - API docs (Swagger UI): <http://localhost:8080/docs/>
 
 ```sh
