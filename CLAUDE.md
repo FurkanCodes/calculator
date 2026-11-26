@@ -89,6 +89,4 @@ Each rule needs a test or a lint check behind it. A rule with no check is not do
 
 ## Open decisions
 
-Ask before implementing these:
-
-- The frontend's visual design and layout (to be drafted as an Artifact).
+None. The visual design ("Ledger") is specified in `docs/frontend-design.md`.
