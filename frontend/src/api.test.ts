@@ -76,12 +76,16 @@ describe('calculate', () => {
     ['a result that is not a valid operand (rule 7)', 200, { result: '1e5', exact: true }],
     ['a success body without exact', 200, { result: '1' }],
     ['an error body with a 200 status', 200, { error: { code: 'OUT_OF_RANGE', message: 'x' } }],
-    ['an unknown error code', 400, { error: { code: 'TEAPOT', message: 'x' } }],
     ['an error without a message', 400, { error: { code: 'INVALID_NUMBER' } }],
     ['a success body with an error status', 500, { result: '1', exact: true }],
   ])('treats %s as unreachable', async (_name, status, body) => {
     respondJSON(status, body)
     expect(await calculate(divide)).toEqual({ kind: 'unreachable' })
+  })
+
+  it('keeps the message of an error with a code it does not know', async () => {
+    respondJSON(400, { error: { code: 'NEW_CODE', message: 'Something new went wrong.' } })
+    expect(await calculate(divide)).toEqual({ kind: 'error', code: null, message: 'Something new went wrong.' })
   })
 
   it('treats a body that is not JSON as unreachable', async () => {

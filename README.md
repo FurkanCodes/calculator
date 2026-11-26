@@ -225,8 +225,8 @@ The reducer does no arithmetic and no fetching. Entering `Calculating` is the re
 `frontend/src/api.ts` calls `POST /api/v1/calculate` with native `fetch` and a relative URL, because nginx will serve the page and the API from one origin. In development, Vite forwards `/api` to the backend on port 8081. Zod checks every response, and a result must itself be a valid operand. `calculate()` never throws; it returns one of:
 
 - `success`, with `result` and `exact`
-- `error`, with one of the API's error codes and its message
-- `unreachable`: no response, or a body that is not the API's format, such as a proxy's HTML error page or an unknown error code
+- `error`, with the API's error code and its message. The code is `null` when this client doesn't know it, for example a code added to a newer backend; the message is still shown.
+- `unreachable`: no response, or a body that is not the API's format, such as a proxy's HTML error page
 - `aborted`, when the caller cancelled it
 
 ### Frontend dependencies
@@ -288,7 +288,7 @@ npm test -- --coverage           # HTML report in frontend/coverage/index.html
 Last measured on 2026-11-26: 100% of statements, branches, functions and lines in `number.ts`, `api.ts`, `calculator.ts`, `useCalculator.ts` and the placeholder `App.tsx`. `main.tsx`, which only mounts the app, is excluded.
 
 - **`number.ts`:** every case in `testdata/numbers.json` must be accepted, or rejected with the code the file gives. Length is measured in UTF-8 bytes, as Go does.
-- **`api.ts`:** `fetch` is mocked. Tests cover the request sent, success, a known error, each kind of malformed body (a JSON number as the result, an unknown code, an HTML page), a network failure, and an abort before and during reading the body.
+- **`api.ts`:** `fetch` is mocked. Tests cover the request sent, success, a known error, each kind of malformed body (a JSON number as the result, an HTML page), an error code it does not know (kept as an error with its message), a network failure, and an abort before and during reading the body.
 - **`calculator.ts`:** one test per arrow in the state diagram, plus Clear from every state, every key ignored in `Calculating`, each `%` case, and the entry limits.
 - **`useCalculator.ts`:** `fetch` is mocked. Tests check that one request is sent per calculation, that Clear and unmount abort it, and that the answer to a cleared request cannot settle the next one.
 

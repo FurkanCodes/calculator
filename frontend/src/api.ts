@@ -33,14 +33,20 @@ export type ErrorCode = (typeof ERROR_CODES)[number]
 // Every result is a valid operand (rule 7), so a result that is not one is
 // treated as a broken response.
 const successSchema = z.object({ result: numberSchema, exact: z.boolean() })
+// A well-formed error with a code this client doesn't know yet (from a newer
+// backend, say) is still the service answering, so it is an error with code
+// null, whose message the UI shows, not "unreachable".
 const errorSchema = z.object({
-  error: z.object({ code: z.enum(ERROR_CODES), message: z.string() }),
+  error: z.object({
+    code: z.string().transform((code) => (ERROR_CODES as readonly string[]).includes(code) ? (code as ErrorCode) : null),
+    message: z.string(),
+  }),
 })
 
 export type CalculateOutcome =
   | { kind: 'success'; result: string; exact: boolean }
-  /** The API answered with its JSON error format. */
-  | { kind: 'error'; code: ErrorCode; message: string }
+  /** The API answered with its JSON error format. code is null for a code this client doesn't know. */
+  | { kind: 'error'; code: ErrorCode | null; message: string }
   /** No answer, or one that is not the API's format, such as a proxy's HTML page. */
   | { kind: 'unreachable' }
   /** The caller aborted the request. */
