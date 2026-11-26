@@ -57,7 +57,7 @@ Everything this project is meant to deliver, in build order. An item is ticked o
   - [x] Range limit defined once as `maxMagnitude`
   - [x] Fuzz test compares every result with an exact `math/big` calculation
   - [x] README fixes: abbreviated curl output, `X-Request-Id`, complete "not covered" list, shopspring count
-- [ ] Merge `feature/backend-core` into `main`
+- [x] Merge `feature/backend-core` into `main`
 
 ## 6. Frontend (`frontend/`)
 
