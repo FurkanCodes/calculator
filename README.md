@@ -1,6 +1,6 @@
 <!--
 Before submitting:
-- add an application screenshot with alt text once the frontend exists
+- add an application screenshot with alt text (the frontend is built; only the screenshot is left)
 - run every command below from a clean checkout and fix anything that differs
 - re-measure coverage and update the table in "Testing and Coverage"
 -->
@@ -9,9 +9,9 @@ Before submitting:
 
 A calculator with a Go backend that does exact decimal arithmetic. `0.1 + 0.2` returns `0.3`, and when a result has to be rounded, such as `1 ÷ 3`, the response says so.
 
-The Go backend is built and tested, with all seven operations. So is the core of the React frontend: its number checks, its API client and the calculator's state machine. The web container is built too: nginx serves the frontend and forwards API calls to the backend. Not built yet: the frontend's interface (keypad, display and layout) and CI. The brief for this take-home allows 2–4 hours, so it favours a small, well-tested core over extra features.
+The Go backend is built and tested, with all seven operations, and so is the React frontend: a keypad that also works from the keyboard, a display that marks rounded results, and error text for each failure. So is the web container: nginx serves the frontend and forwards API calls to the backend. Not built yet: CI. The brief for this take-home allows 2–4 hours, so it favours a small, well-tested core over extra features.
 
-<!-- Application screenshot goes here once the frontend exists. -->
+<!-- Application screenshot goes here: still to take, at the submission step. -->
 
 ## Quick Start
 
@@ -33,7 +33,7 @@ curl -s http://localhost:8080/api/v1/calculate \
 {"result":"0.3","exact":true}
 ```
 
-Port 8080 is published on `127.0.0.1` only, so the app is reachable from this machine and not from the network. The calculator service has no published port; nginx is the only way in. `docker compose down` stops both containers.
+Port 8080 is published on `127.0.0.1` only, so the app is reachable from this machine and not from the network. The calculator service has no published port; nginx is the only way in. `docker compose down` stops both containers. To work on the frontend with hot reload, use its dev server instead (below).
 
 ## Local Development
 
@@ -52,7 +52,7 @@ npm ci
 npm run dev                      # http://localhost:5173, forwards /api to the backend on :8081
 ```
 
-The page is a placeholder until the interface is built. `npm run build` type-checks and writes the production build to `frontend/dist`.
+To use a backend on another port, set `API_PROXY_TARGET`, for example `API_PROXY_TARGET=http://127.0.0.1:9090 npm run dev`. `npm run build` type-checks and writes the production build to `frontend/dist`.
 
 ## Supported Operations
 
@@ -267,7 +267,7 @@ nginx here is a static file server and a reverse proxy, not an API gateway. It d
 
 ### Frontend state management
 
-The calculator's state is a `useReducer` with a pure reducer (`frontend/src/calculator.ts`), tested without rendering. There is one screen and nothing shared between components, so there is no Redux. The interface that will press its keys is not built yet.
+The calculator's state is a `useReducer` with a pure reducer (`frontend/src/calculator.ts`), tested without rendering. There is one screen and nothing shared between components, so there is no Redux.
 
 ```mermaid
 stateDiagram-v2
@@ -295,8 +295,9 @@ stateDiagram-v2
 - **Chaining.** When an operator started the request, the result becomes the first number with that operator chosen, so `2 + 3 × 4 =` sends `add(2, 3)` and then `multiply(5, 4)`. A second operator key in a row replaces the first.
 - **The `%` key.** After `a + b`, `%` sends `percentage(b, a)` and the result replaces `b`, so `50 + 10 % =` gives `55`. Like any result, it is replaced by the next digit: `50 + 10 % 3 =` sends `add(50, 3)`. With no operator chosen, `x %` sends `percentage(x, 1)`, which is x ÷ 100. Right after an operator, `%` is ignored.
 - **Rounded results.** A result keeps its `exact` flag wherever it goes: `ShowingResult`, the first number after an operator, or the second number after `%`. So the display can mark it.
+- **What was calculated.** `ShowingResult` and `Error` keep the calculation they answer (its request and where its result went), so the display can show `1 ÷ 3 =` above the result. The sign key on a result builds a new `ShowingResult` without it, because the calculation no longer describes the number.
 
-The reducer does no arithmetic and no fetching. Entering `Calculating` is the request: the state holds the request to send, where its result goes (`ShowingResult`, `OperatorChosen` with the next operator, or back into the second number), and the number that was on the display. `useCalculator` runs one effect per request object, sends it, and dispatches `settled` with that request and its outcome. The reducer settles only when it is the same request object it is waiting for, so a late answer to a cleared request is ignored. Leaving `Calculating` (Clear) or unmounting also aborts the fetch through its `AbortController`. The hook returns `{ state, press }`; `press` takes keypad keys only, never `settled`.
+The reducer does no arithmetic and no fetching. Entering `Calculating` is the request: the state holds the request to send, where its result goes (`ShowingResult`, `OperatorChosen` with the next operator, or back into the second number), and the number that was on the display, as it was sent (a typed `5.` is `5`). `useCalculator` runs one effect per request object, sends it, and dispatches `settled` with that request and its outcome. The reducer settles only when it is the same request object it is waiting for, so a late answer to a cleared request is ignored. Leaving `Calculating` (Clear) or unmounting also aborts the fetch through its `AbortController`. The hook returns `{ state, press }`; `press` takes keypad keys only, never `settled`.
 
 ### Frontend API client
 
@@ -307,6 +308,18 @@ The reducer does no arithmetic and no fetching. Entering `Calculating` is the re
 - `invalidResponse`: a JSON answer that breaks the API's contract, such as a 200 whose result is a JSON number or not a valid operand, an error body with a 200 status, a success body with an error status, or an error without a message
 - `unreachable`: no response, or a body that is not JSON, such as a proxy's HTML error page. An aborted request also ends here, and the reducer ignores it.
 
+### Frontend interface
+
+One screen in one column, at most 420 px wide and centred on larger screens: a header, the display card, and the keypad. The column is exactly the viewport's height, so the `=` key is always on screen: the keys shrink from 60 px to 44 px on short phones, and on screens under 600 px tall the padding and gaps go from 16 px to 12 px. Checked with no page scroll at 320 × 568, 375 × 553 (iPhone SE in Safari), 375 × 667 and 390 × 844, and without sideways scrolling at 320 px wide. The visual design ("Ledger") is specified in [docs/frontend-design.md](docs/frontend-design.md); its colours are Tailwind theme tokens in `frontend/src/index.css`, and the type is IBM Plex Mono and Plex Sans from Google Fonts. There is no dark theme.
+
+- **Keypad.** Twenty-one real buttons, 44 px to 60 px tall, with an `aria-label` on each symbol key (`Clear`, `Square root`, `Power` and so on). Pressing a key with a mouse or finger does not move focus to it, so `Enter` on the keyboard still means equals.
+- **Keyboard.** Digits, `.`, `+ - * /`, `^`, `%`, `Enter` and `=` (equals), `Escape` and `Delete` (clear). There is no Backspace, because the reducer has no action that deletes one character. The listener is on `window`, and it leaves alone keys typed into a field, shortcuts with Ctrl, Cmd or Alt (AltGr still types), and `Enter` on a focused button.
+- **Display.** The expression line shows what is being calculated (`50 +`, `1 ÷ 3 =`, `√2 =`, `50 + 10%`), on one line: a long one is cut at its start with an ellipsis, so the operator or `=` stays in view, and the full text is its `title`. The value is in a live region (`role="status"`, `aria-live="polite"`), which also says ", rounded to 34 significant digits" for a rounded result. The font steps down from 40 px to 26 px until the value fits, measured rather than estimated, and is fitted again when the web font has loaded. A value still too long scrolls horizontally inside Base UI's `ScrollArea`, which fades whichever edge hides digits: a result shows its leading digits, and a number being typed shows its last ones. A result with `exact: false` gets the "≈ Rounded to 34 digits" chip. A shown result has a Copy button, which falls back to selecting the value when the clipboard is unavailable.
+- **Calculating.** The card has `aria-busy`, and the previous value dims while "Calculating…" shows in the footer. Both wait 300 ms, so a fast answer does not flicker. Keys stay enabled but are ignored, except Clear, which cancels the request.
+- **Errors.** Each error code has its own short message, and no code is ever shown. A code the client does not know shows the backend's message. No answer, or nginx's `SERVICE_UNAVAILABLE`, shows "Can't reach the calculator." with a no-connection icon. An answer that breaks the API's contract shows "Something went wrong." The next digit starts a new number.
+
+What the components show comes from pure, tested functions: `displayModel` (`display.ts`) turns the reducer's state into the expression and the value, and `failureText` (`errors.ts`) picks the error text. `keys.ts` is one table of the keys, with each key's label, accessible name and the keyboard keys that press it; the keypad renders it, and `keyAction` is built from it.
+
 ### Frontend dependencies
 
 Versions are pinned exactly in `frontend/package.json`, with a committed lockfile.
@@ -315,13 +328,14 @@ Versions are pinned exactly in `frontend/package.json`, with a committed lockfil
 | ------- | --- |
 | `react`, `react-dom` | The UI library the brief asks for. |
 | `zod` | Validates typed input and API responses with one schema per shape, instead of hand-written type guards. |
-| `@base-ui/react` | Unstyled, accessible components for the keypad. Installed with the scaffold; the placeholder page does not use it yet. |
+| `@base-ui/react` | Unstyled, accessible components. The display uses its `ScrollArea` for a long value: the viewport is focusable only when it scrolls, and it marks which edges hide content, so the fade is shown only where digits are hidden. The keys are plain buttons, which need nothing more. |
 | `vite`, `@vitejs/plugin-react` | Dev server with the `/api` proxy, and the production build. |
 | `typescript` | Strict type checking. Version 6.0, because `typescript-eslint` does not support TypeScript 7 yet. |
 | `tailwindcss`, `@tailwindcss/vite` | Styling with utility classes, built by the Vite plugin with no separate config file. |
 | `vitest`, `@vitest/coverage-v8` | Test runner that shares Vite's config, and its coverage report. |
 | `jsdom` | A browser environment for tests that render or use React hooks. |
 | `@testing-library/react`, `@testing-library/dom` | Renders components and hooks in tests; the second is the first's required peer. |
+| `@testing-library/user-event` | Simulates a real click and Tab in tests, including the focus change a mouse press causes, which `fireEvent` does not. |
 | `eslint`, `@eslint/js`, `typescript-eslint`, `eslint-plugin-react-hooks` | Linting, type-aware for TypeScript, with the rules of hooks and the ban on arithmetic. |
 | `@types/react`, `@types/react-dom`, `@types/node` | Type definitions for React, and for Node in `vite.config.ts`. |
 
@@ -363,12 +377,14 @@ npm run typecheck
 npm test -- --coverage           # HTML report in frontend/coverage/index.html
 ```
 
-Last measured on 2026-11-26: 100% of statements, branches, functions and lines in `number.ts`, `api.ts`, `calculator.ts`, `useCalculator.ts` and the placeholder `App.tsx`. `main.tsx`, which only mounts the app, is excluded.
+Last measured on 2026-11-26, 272 tests: 99.6% of statements and lines, 99.5% of branches and 100% of functions overall. Every logic module (`number.ts`, `api.ts`, `calculator.ts`, `useCalculator.ts`, `display.ts`, `errors.ts`, `keys.ts`) and every component and hook is at 100%, except `ValueText.tsx` (96.9% of lines): its guard for refs that are not attached yet cannot happen once React has run the layout effect. `main.tsx`, which only mounts the app, is excluded.
 
 - **`number.ts`:** every case in `testdata/numbers.json` must be accepted, or rejected by `numberError` with the code the file gives. Length is measured in UTF-8 bytes, as Go does.
 - **`api.ts`:** `fetch` is mocked. Tests cover the request sent, success, a known error, an error code it does not know (kept as an error with its message), each kind of contract-breaking answer, a body that is not JSON, and a network failure.
 - **`calculator.ts`:** one test per arrow in the state diagram, plus Clear from every state, every key ignored in `Calculating`, an answer to an old or different request ignored, each `%` case, the entry keys on typed numbers and on results, and the entry limits.
 - **`useCalculator.ts`:** `fetch` is mocked. Tests check that one request is sent per calculation, that Clear and unmount abort it, and that the answer to a cleared request cannot settle the next one.
+- **`display.ts`, `errors.ts`, `keys.ts`:** the expression and value for every state, the text for every error code, and the keyboard map and which keys are left to other inputs.
+- **Components:** rendered with React Testing Library, with `fetch` mocked. Key presses and keyboard input send the right requests and show the results; a mouse press leaves focus where it was, so `Enter` then means equals, while a key reached with Tab is pressed by `Enter`; after unmount, keys send nothing; the rounded chip appears only when `exact` is false; every error code shows its text and never the code; an unknown code shows the backend's message; the unreachable and invalid-response states; Copy writes the full value to the clipboard, and selects it when the clipboard fails; Clear while calculating aborts the request and ignores its late answer. jsdom does no layout, so the font-size tests give elements the widths a browser would, including a refit when the web font loads.
 
 CI is not set up yet.
 

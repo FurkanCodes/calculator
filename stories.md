@@ -67,10 +67,10 @@ Everything this project is meant to deliver, in build order. An item is ticked o
 - [x] Zod number schema, tested against `testdata/numbers.json` **(brief: input validation)**
 - [x] API client: `fetch`, Zod validation of responses, request cancelling with `AbortController`
 - [x] Calculator state as a pure `useReducer`, with reducer tests
-- [ ] Keypad and keyboard input, result display with a "rounded" marker **(brief: intuitive UI)**
-- [ ] Error text per error code, and a "service unreachable" state **(brief: error handling)**
-- [ ] Responsive layout that works on a phone **(brief)**
-- [ ] Component tests with React Testing Library, and a coverage report **(brief)**
+- [x] Keypad and keyboard input, result display with a "rounded" marker **(brief: intuitive UI)**
+- [x] Error text per error code, and a "service unreachable" state **(brief: error handling)**
+- [x] Responsive layout that works on a phone **(brief)**
+- [x] Component tests with React Testing Library, and a coverage report **(brief)**
 
 ## 7. Web container
 
