@@ -87,7 +87,7 @@ Everything this project is meant to deliver, in build order. An item is ticked o
 
 - [x] Run every README command from a clean checkout, re-measure coverage, and add a screenshot
 - [x] `PROMPTS.md` complete **(brief)**
-- [ ] Make the repository public, or add the reviewers as collaborators **(brief)**
+- [x] Make the repository public, or add the reviewers as collaborators **(brief)**
 
 ## 10. API documentation
 
