@@ -278,6 +278,9 @@ func reference(name, a, b string) (decimal.Decimal, bool) {
 		"subtract": new(big.Rat).Sub,
 		"multiply": new(big.Rat).Mul,
 		"divide":   new(big.Rat).Quo,
+		"percentage": func(x, y *big.Rat) *big.Rat {
+			return new(big.Rat).Quo(new(big.Rat).Mul(x, y), big.NewRat(100, 1))
+		},
 	}[name](x, y)
 	if exact.Sign() == 0 {
 		return decimal.Zero, true
@@ -319,10 +322,11 @@ func reference(name, a, b string) (decimal.Decimal, bool) {
 // FuzzCalculate checks properties that hold for any input: Calculate never
 // panics, every error is an *Error, every result is a valid operand and
 // matches the math/big reference in value and exactness, and an exact result
-// undone by the inverse operation gives back the first operand. It fuzzes
-// only operations with an inverse; others get their own tests.
+// undone by the inverse operation gives back the first operand. It fuzzes the
+// operations with an inverse, plus percentage, which has no inverse and so
+// skips that last check. power and sqrt have their own fuzz tests.
 func FuzzCalculate(f *testing.F) {
-	names := slices.Sorted(maps.Keys(inverses))
+	names := append(slices.Sorted(maps.Keys(inverses)), "percentage")
 	seeds := []struct {
 		op   uint8
 		a, b string
@@ -335,6 +339,7 @@ func FuzzCalculate(f *testing.F) {
 		{2, "9999999999999999999999999999999999", "9999999999999999999999999999999999"},
 		{1, "3000000000000000000000000000000001", "2"}, // quotient ties at the 35th digit
 		{1, "3000000000000000000000000000000003", "2"},
+		{4, "10", "50"}, {4, "33.3", "1"}, {4, "1234567890123456789012345678901235", "0.5"}, // percentage
 	}
 	for _, s := range seeds {
 		f.Add(s.op, s.a, s.b)
@@ -358,10 +363,11 @@ func FuzzCalculate(f *testing.F) {
 				name, a, b, got.Value, got.Exact, want, wantExact)
 		}
 		divisor, _ := decimal.NewFromString(b)
-		if !got.Exact || (name == "multiply" && divisor.IsZero()) {
+		inverse, ok := inverses[name]
+		if !ok || !got.Exact || (name == "multiply" && divisor.IsZero()) {
 			return // only exact results can be undone, and multiplying by zero never can
 		}
-		back, err := Calculate(inverses[name], []string{got.Value, b})
+		back, err := Calculate(inverse, []string{got.Value, b})
 		if err != nil {
 			t.Fatalf("%s(%q, %q) undoing %s(%q, %q) failed: %v", inverses[name], got.Value, b, name, a, b, err)
 		}
