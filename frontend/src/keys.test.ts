@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isCalculatorKey, keyAction } from './keyboard'
+import { isCalculatorKey, KEYS, keyAction } from './keys'
 
 describe('keyAction', () => {
   it.each(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'])('types the digit %s', (key) => {
@@ -24,6 +24,13 @@ describe('keyAction', () => {
 
   it.each(['Backspace', 'a', 'x', ' ', 'Tab', 'F1', 'toString', 'constructor'])('ignores %j', (key) => {
     expect(keyAction(key)).toBeNull()
+  })
+})
+
+describe('KEYS', () => {
+  it('gives each keyboard key to only one calculator key', () => {
+    const keyboard = KEYS.flatMap((spec) => spec.keyboard ?? [])
+    expect(new Set(keyboard).size).toBe(keyboard.length)
   })
 })
 
