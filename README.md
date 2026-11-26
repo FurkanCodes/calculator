@@ -6,9 +6,11 @@ A React + TypeScript calculator backed by a Go service that does exact decimal a
 
 ## Quick Start
 
-Requires Docker with Compose v2.
+Requires Git and Docker with Compose v2.
 
 ```sh
+git clone https://github.com/FurkanCodes/calculator.git
+cd calculator
 docker compose up -d --build
 ```
 
@@ -29,20 +31,31 @@ curl -s http://localhost:8080/api/v1/calculate \
 
 ## Local Development
 
-Backend (Go 1.27.4+):
+Runs the two apps without Docker. Requires Git, Go 1.27.4 or newer, and Node.js 24 LTS with npm.
 
-```sh
-cd backend
-go run ./cmd/calculator          # :8081, set PORT to change it
-```
+1. Clone the repository, unless you already have it:
 
-Frontend (Node.js 24 LTS; npm):
+   ```sh
+   git clone https://github.com/FurkanCodes/calculator.git
+   cd calculator
+   ```
 
-```sh
-cd frontend
-npm ci
-npm run dev                      # http://localhost:5173, forwards /api to :8081
-```
+2. Start the backend in one terminal. It listens on port 8081; set `PORT` to change it.
+
+   ```sh
+   cd backend
+   go run ./cmd/calculator
+   ```
+
+3. Start the frontend in a second terminal, from the repository root:
+
+   ```sh
+   cd frontend
+   npm ci
+   npm run dev
+   ```
+
+4. Open <http://localhost:5173>. The dev server forwards `/api` to the backend on port 8081, so the app works as it does in Docker. Swagger UI is only in the Docker setup; the OpenAPI document is at <http://localhost:5173/api/v1/openapi.json>.
 
 Settings live in one file: copy `.env.example` at the repository root to `.env` and edit it. It sets the published port (`WEB_PORT`) and where the dev server forwards `/api` (`API_PROXY_TARGET`). It is git-ignored and holds no secrets; the app itself always calls the relative `/api/v1/calculate`.
 
