@@ -19,10 +19,34 @@ export type NumberErrorCode = 'INVALID_NUMBER' | 'INPUT_TOO_LARGE' | 'OUT_OF_RAN
 
 const utf8 = new TextEncoder()
 
-/** Go's len(s): the length in UTF-8 bytes. */
-function byteLength(s: string): number {
-  return utf8.encode(s).length
+/**
+ * The code the backend would reject s with, or null if s is a valid number.
+ * The checks run in the order of parseOperand in number.go, so the first one
+ * that fails gives the same code.
+ */
+export function numberError(s: string): NumberErrorCode | null {
+  // Go's len(s) is the length in UTF-8 bytes.
+  if (utf8.encode(s).length > MAX_LENGTH) {
+    return 'INPUT_TOO_LARGE'
+  }
+  if (!NUMBER_PATTERN.test(s)) {
+    return 'INVALID_NUMBER'
+  }
+  if (significantDigits(s) > MAX_SIGNIFICANT_DIGITS) {
+    return 'INPUT_TOO_LARGE'
+  }
+  if (!inRange(s)) {
+    return 'OUT_OF_RANGE'
+  }
+  return null
 }
+
+export function isValidNumber(s: string): boolean {
+  return numberError(s) === null
+}
+
+/** A number string the backend accepts. */
+export const numberSchema = z.string().refine(isValidNumber, 'Not a valid number.')
 
 /** Counts the digits from the first non-zero digit to the last. */
 function significantDigits(s: string): number {
@@ -38,45 +62,4 @@ function inRange(s: string): boolean {
   }
   const leadingZeros = fraction.search(/[1-9]/)
   return leadingZeros === -1 || leadingZeros <= MAX_LEADING_FRACTION_ZEROS
-}
-
-function rule(code: NumberErrorCode, message: string) {
-  // abort: true stops at the first failed check, in the backend's order.
-  return { abort: true, message, params: { code } }
-}
-
-/**
- * A number string the backend accepts. The checks run in the backend's order,
- * so the first failure carries the code the backend would send for it.
- */
-export const numberSchema = z
-  .string()
-  .refine(
-    (s) => byteLength(s) <= MAX_LENGTH,
-    rule('INPUT_TOO_LARGE', `A number can be at most ${MAX_LENGTH} characters long.`),
-  )
-  .refine(
-    (s) => NUMBER_PATTERN.test(s),
-    rule('INVALID_NUMBER', 'Use a plain decimal such as -12.5.'),
-  )
-  .refine(
-    (s) => significantDigits(s) <= MAX_SIGNIFICANT_DIGITS,
-    rule('INPUT_TOO_LARGE', `A number can have at most ${MAX_SIGNIFICANT_DIGITS} significant digits.`),
-  )
-  .refine(inRange, rule('OUT_OF_RANGE', 'A number must be zero or between 1e-100 and 1e100.'))
-
-/** The code the backend would reject value with, or null if it is a valid number. */
-export function numberErrorCode(value: unknown): NumberErrorCode | null {
-  const result = numberSchema.safeParse(value)
-  if (result.success) {
-    return null
-  }
-  const issue = result.error.issues[0]
-  // A value that is not a string fails before the rules; the backend calls
-  // that INVALID_NUMBER too.
-  return issue?.code === 'custom' ? (issue.params?.code as NumberErrorCode) : 'INVALID_NUMBER'
-}
-
-export function isValidNumber(value: string): boolean {
-  return numberSchema.safeParse(value).success
 }
