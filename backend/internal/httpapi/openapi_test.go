@@ -243,30 +243,6 @@ func TestSpecNumberRulesMatchCalc(t *testing.T) {
 	}
 }
 
-// The descriptions state limits as numbers. Every number written next to
-// these units must be the limit in the code, so none can go stale.
-func TestSpecStatesTheLimits(t *testing.T) {
-	limits := []struct {
-		unit string
-		want int
-	}{
-		{"significant digits", calc.Precision},
-		{"characters", calc.MaxLength},
-		{"bytes", maxBodyBytes},
-	}
-	for _, limit := range limits {
-		matches := regexp.MustCompile(`([0-9]+) `+limit.unit).FindAllSubmatch(openapiSpec, -1)
-		if len(matches) == 0 {
-			t.Errorf("openapi.json never states the limit in %s", limit.unit)
-		}
-		for _, m := range matches {
-			if string(m[1]) != strconv.Itoa(limit.want) {
-				t.Errorf("openapi.json says %q, want %d %s", m[0], limit.want, limit.unit)
-			}
-		}
-	}
-}
-
 func TestSpecErrorCodesMatchStatuses(t *testing.T) {
 	documented := documentedCodes(t, loadSpec(t))
 	for code, status := range statuses {

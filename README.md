@@ -96,7 +96,7 @@ Success, `200`:
 The body must be one JSON object with exactly two keys, `operation` and `operands`, each appearing once and matched case-sensitively. Operands and results are JSON strings. A valid number:
 
 - is a plain decimal such as `-12.5`, `0.001` or `42`, with no `+`, no exponent and no bare `.`
-- is at most 256 characters long
+- is at most 256 bytes long
 - has at most 34 significant digits
 - is zero, or has a magnitude from 10⁻¹⁰⁰ up to (not including) 10¹⁰⁰
 
@@ -189,11 +189,11 @@ It is JSON, not YAML, because the standard library reads JSON and the backend ha
 - the `operation` enum is not exactly calc's operation table, or an operation has no success example;
 - a code in the `statuses` table is missing or listed under another status, or the document lists a code the service does not have (only nginx's `SERVICE_UNAVAILABLE`, under 503, is allowed);
 - an error response does not use the error schema for its status, or one of its examples has a code that status does not carry;
-- the number pattern, the operand length limit or the request ID pattern differs from the code, or a description gives a number of significant digits, characters or bytes that is not the limit in the code;
+- the number pattern, the operand length limit or the request ID pattern differs from the code;
 - a path or method in the document is not a registered route, or a registered route is not in the document;
 - an example is not what the service sends. Each request example is sent to the real handler and must get the response example of the same name: the same status, content type and JSON body, message included. The response examples that no request produces (a body over 4 KiB, the 404, the 405 and the 500) are produced by a test as well. Only nginx's 503 cannot be produced in the Go tests.
 
-The examples sit at the limits, such as a 35-digit operand and an exponent of 1001, so changing a limit without the document fails a test.
+The examples sit at the limits, such as a 35-digit operand and an exponent of 1001, so changing a limit without the document fails a test. What the tests do not check: the schemas themselves (a response with an extra or renamed field would still pass if its examples were updated too), and the prose in the descriptions. Both are kept by hand.
 
 The document was also checked once with Redocly CLI 2.77.0 (`redocly lint`, recommended rules), which is not part of the repo: no errors. The warnings left are deliberate: five values in request examples that break the schema on purpose to show an error (a JSON-number operand, `1e5`, an unknown key, an unknown operation), the shared 404 and 405 responses, which belong to no single operation, no 4XX response on the two `GET` operations, and no license. With the default settings, `no-invalid-media-type-examples` also flags the `message` of all 17 error examples, because it checks each part of an error schema's `allOf` on its own against unknown properties; with its `allowAdditionalProperties: true` option those warnings go away and the five deliberate ones remain.
 

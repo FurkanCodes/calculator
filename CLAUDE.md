@@ -68,7 +68,7 @@ Each rule needs a test or a lint check behind it. A rule with no check is not do
    - Domain errors are logged at info level with their code as a field, never at error level.
 6. **Inputs have limits, defined in one place, each with a test.**
    - Request body: 4 KiB.
-   - An operand is at most 256 characters. Longer is `INPUT_TOO_LARGE`.
+   - An operand is at most 256 bytes. Longer is `INPUT_TOO_LARGE`.
    - A number is a plain decimal matching `^-?[0-9]+(\.[0-9]+)?$`: no `+`, exponent, spaces, or leading or trailing dot. Anything else is `INVALID_NUMBER`.
    - At most 34 significant digits, counted from the first non-zero digit to the last. More is `INPUT_TOO_LARGE`.
    - Zero, or a magnitude of at least 10⁻¹⁰⁰ and less than 10¹⁰⁰ (`maxMagnitude` in `number.go`). An operand or result outside this is `OUT_OF_RANGE`.
@@ -79,7 +79,7 @@ Each rule needs a test or a lint check behind it. A rule with no check is not do
 
 ## Code quality
 
-- Before merging a feature branch, run `/thermo-nuclear-code-quality-review` on its diff and fix the structural findings first.
+- Before merging a branch that changes calculation or API behaviour, run `/thermo-nuclear-code-quality-review` on its diff and fix what is wrong or untrue. Don't add machinery only to prove things: the brief's budget favours a small core. Smaller branches (CI, docs, tooling) are checked directly.
 - Standard library first. Every added dependency needs a reason in the README's design decisions.
 
 ## Deliverables
