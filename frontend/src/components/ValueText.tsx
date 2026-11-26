@@ -1,6 +1,8 @@
 import { ScrollArea } from '@base-ui/react/scroll-area'
 import { type RefObject, useLayoutEffect, useRef } from 'react'
-import { fittingSize } from '../fit'
+
+/** The value's font sizes in px, largest first. The last is the smallest. */
+const SIZES = [40, 36, 32, 28, 26] as const
 
 interface ValueTextProps {
   text: string
@@ -13,7 +15,9 @@ interface ValueTextProps {
 
 /**
  * The value, right-aligned at the largest size that fits the card. Too long
- * for the smallest size, it scrolls horizontally. Base UI's ScrollArea makes
+ * for the smallest size, it scrolls horizontally. The size is measured, not
+ * estimated from the number of characters, which keeps arithmetic out of the
+ * frontend (rule 1) and holds for whichever font has loaded. Base UI's ScrollArea makes
  * the viewport focusable only when it scrolls, and marks which edges hide
  * digits, so the fade shows only where digits are hidden.
  */
@@ -28,18 +32,27 @@ export function ValueText({ text, anchor, dimmed, textRef }: ValueTextProps) {
     if (root === null || viewport === null || span === null) {
       return
     }
+    let active = true
     const fit = () => {
-      const size = fittingSize((px) => {
+      if (!active) {
+        return
+      }
+      // Try each size, largest first, and keep the first that fits. When none
+      // fits, the last one tried, the smallest, stays, and the text scrolls.
+      SIZES.some((px) => {
         span.style.fontSize = `${px}px`
         return span.offsetWidth <= root.clientWidth
       })
-      span.style.fontSize = `${size}px`
       viewport.scrollLeft = anchor === 'end' ? viewport.scrollWidth : 0
     }
     fit()
+    // IBM Plex Mono may arrive after the first fit, with different widths.
+    void document.fonts?.ready.then(fit)
 
     if (typeof ResizeObserver === 'undefined') {
-      return
+      return () => {
+        active = false
+      }
     }
     // Refit when the card's width changes. Fitting changes the height, so
     // reacting to every resize would loop.
@@ -52,6 +65,7 @@ export function ValueText({ text, anchor, dimmed, textRef }: ValueTextProps) {
     })
     observer.observe(root)
     return () => {
+      active = false
       observer.disconnect()
     }
   }, [text, anchor, textRef])

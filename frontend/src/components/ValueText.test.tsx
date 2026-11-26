@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import { useRef } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ValueText } from './ValueText'
@@ -89,6 +89,46 @@ describe('ValueText', () => {
     screen.getByTestId('value').style.fontSize = '10px'
     resize() // same width: nothing to do
     expect(fontSize()).toBe('10px')
+  })
+
+  describe('when the web font arrives', () => {
+    let loaded: () => void = () => undefined
+
+    beforeEach(() => {
+      const ready = new Promise<void>((resolve) => {
+        loaded = resolve
+      })
+      Object.defineProperty(document, 'fonts', { value: { ready }, configurable: true })
+    })
+
+    afterEach(() => {
+      Reflect.deleteProperty(document, 'fonts')
+    })
+
+    it('fits again, because the font changes the text width', async () => {
+      render(<Harness text="123456789012" />)
+      expect(fontSize()).toBe('32px')
+
+      cardWidth = 320 // stands in for the narrower web font
+      await act(async () => {
+        loaded()
+        await Promise.resolve()
+      })
+      expect(fontSize()).toBe('40px')
+    })
+
+    it('does nothing once the value has gone', async () => {
+      const { unmount } = render(<Harness text="123456789012" />)
+      const span = screen.getByTestId('value')
+      unmount()
+
+      cardWidth = 320
+      await act(async () => {
+        loaded()
+        await Promise.resolve()
+      })
+      expect(span.style.fontSize).toBe('32px')
+    })
   })
 
   it('stops observing when it unmounts', () => {
