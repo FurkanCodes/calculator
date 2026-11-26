@@ -111,6 +111,7 @@ flowchart LR
 - **Numbers as strings.** JSON numbers become floats in browsers, so operands and results are strings and the API rejects JSON numbers. The frontend does no arithmetic, and a lint rule enforces it.
 - **One error format, one status per code.** Defined in one table and checked by tests.
 - **Validation on both sides.** The backend checks everything itself; the frontend checks the same rules (shared cases in `testdata/numbers.json`) only for instant feedback.
+- **nginx in front, two containers.** The React build is static files and needs a server; nginx serves them and forwards `/api/*` to the Go service. Page and API share one origin, so there is no CORS and no backend URL in the frontend. The service has no published port, and when it is down nginx still answers in the JSON error format (`503 SERVICE_UNAVAILABLE`). nginx is not an API gateway: no auth or rate limiting (those are in the AWS design). Serving the build from Go would remove a container, but would tie frontend releases to the backend binary.
 - **Stateless service.** Nothing is stored, so any instance can be replaced. It shuts down gracefully on SIGTERM.
 - **Pocket-calculator input.** One operation at a time, left to right: `2 + 3 × 4` is `20`.
 

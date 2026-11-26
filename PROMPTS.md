@@ -360,3 +360,21 @@ This file reorganised into phases with shorter result notes. The prompts themsel
 > Other skills: EGM brainstorm to stress-test the design, and readme-optimization for the README. please state that we also use  nuclear code review for clean code
 
 The skills line now lists the thermo-nuclear code quality review first.
+
+### 39
+
+> what ı DONT understand is why do we have same ports for both abckend and frontend? they should be seperate apps right
+
+Explained: two separate containers. The Go service listens on 8081 inside Docker's network only; nginx on 8080 serves the React build and forwards `/api/*`, giving one origin.
+
+### 40
+
+> are these the reasons we used nGNIX?
+
+Confirmed the four reasons from the design phase, and the alternative of serving the build from Go.
+
+### 41
+
+> add the nginx reasons to the readme
+
+Added a "nginx in front, two containers" design decision to the README.
