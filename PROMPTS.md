@@ -378,3 +378,9 @@ Confirmed the four reasons from the design phase, and the alternative of serving
 > add the nginx reasons to the readme
 
 Added a "nginx in front, two containers" design decision to the README.
+
+### 43
+
+> [Pasted an outside review of `main`: submit as is; fix fast keyboard chaining, where keys typed while a request is in flight are dropped (`2 + 3 × 4 =` on a slow connection); fix the OpenAPI link in `docs/design.md` and the stale "(planned)" labels in `docs/production-design.md`.]
+
+Keys typed during a calculation now wait for its answer and then apply in order; after a failure they are dropped. Fixed both documentation errors, and a future-tense line about the smoke test.
