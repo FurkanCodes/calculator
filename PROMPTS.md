@@ -225,3 +225,11 @@ Outcome: README cut from 422 to 227 lines. It now describes only what is built, 
 > Create stories.md and write down everything we are suppose to implement and tick them one by one.
 
 Outcome: `stories.md` lists every deliverable in build order, with the brief's requirements marked, and ticks only items that are built and verified.
+
+### 18
+
+> [Pasted a target README outline: brief description and screenshot, Quick Start, Local Development, Supported Operations, API, Architecture (one diagram and a short explanation), Design Decisions (decimal precision, string-based numbers, stateless backend, validation and error handling, frontend state management), Testing and Coverage, Assumptions, AI Usage.]
+>
+> also lets put back microservice architectuer for the service it self
+
+Outcome: README reorganised to that outline. Its single architecture diagram now shows the service's internal layers: request ID, router, the endpoint wrapper and JSON decoding in `httpapi`, then the operation table, number rules and precision policy in `calc`, with the error path back to the wrapper.
