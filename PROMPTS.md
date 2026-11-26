@@ -1,0 +1,189 @@
+# Prompts
+
+The brief asks for the prompts used to build this. They are listed below in order. My messages are copied as I wrote them, except where a note in square brackets says otherwise. Each one is followed by a one-line note on what came out of it.
+
+## Tools
+
+- Claude Code (Claude Opus 5.5), used for design discussion, documentation and code.
+- Skills: EGM brainstorm (`/egm:egm_brainstorm`) to stress-test the design, readme-optimization to structure the README, and [thermo-nuclear-code-quality-review](https://github.com/cursor/plugins/blob/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md) to review code before each merge.
+
+I made the design decisions in these conversations. Claude drafted the documents and writes the code under the rules in [CLAUDE.md](CLAUDE.md). I read and reviewed every change.
+
+## Session 1: design (2026-11-26)
+
+### 1
+
+> We will be building a calculator app with microservices. Functionally, it is going to have addition, subtraction, multiplication, division, and, optionally, we will have exponentiation, square root, and percentage, but we can just add them. I don't think they are going to be hard to implement.
+> For the frontend, we're going to be using React with a very intuitive UI for entering input and displaying results. We're going to have input validation and error handling. We probably can use Zod for this, and we are going to have a very responsive design. We should at least have basic mobile support, but I'm sure we can just support any type of screen sizes.
+> For the UI, we can start with base UI, and we can create our own components on top of it based on design. We can use impeccable design skill with taste design skill to create a beautiful user experience and a very pretty, modern design.
+> For now, these are all just talking points that you and I are going to discuss. We can go into details for each step by step.
+> From a nonfunctional perspective, we should have clean, readable, and idiomatic code. We have to write unit tests. For both backend and frontend, we have to have good documentation. We will have setup instructions, API usage, and design rationale. We should have a Docker file for full-stack deployment.
+> For the cloud, we should focus on Amazon Web Services. There are going to be some constraints:
+> - We are going to use React TypeScript for the frontend, and for the backend, Go Lang is preferred here.
+> - What we are going to deliver is that we're going to have a GitHub repository for both frontend and backend code. Maybe we can use some sort of a monorepo architecture for the repository itself, with very distinct, separate frontend and backend.
+> - We're going to have a proper README.md file with setup instructions, API examples, and design decisions that we are going to make.
+> - We're going to have a unit test and a coverage report.
+> - We're going to have a Docker file as well to just deploy it full stack.
+>
+> I think that's it. Now we can discuss further how we should architect this application. Let's talk about diagrams. I really want to have diagrams in our README file as well, and maybe even we can separately work on an API key system. In order to use the calculator, you should generate an API key, then you're going to have to input that API key, and then you're going to be authenticated to use the microservice to the application. Speaking of, since this is going to be a microservice, I think we should also treat it as having a gateway layer too. Maybe we can also think about that as well.
+>
+> [The assignment brief was pasted here.]
+>
+> /egm:egm_brainstorm
+
+Outcome: Claude compared the scope with the 2–4 hour brief and recommended one Go service behind nginx, with API keys left out of the build. It also raised floating-point precision, Go's JSON encoder failing on infinity and NaN, the unclear meaning of "percentage", and the need for this file.
+
+### 2
+
+> Yeah, I think you're right. We should not overdeliver this. Now, since you mentioned, let's start this application from the backend, and let's put some rules in its place.
+>
+> First of all, floating point is actually an issue. It also is encouraged in a fintech business that you do not use floating points because that equation you proposed gives you a trailing number. In the end, that is actually going to turn it into a broken system, a broken result.
+>
+> Let's lay some ground rules for this application. By ground rules, I mean, let's say, if you are setting up a payment backend system, the first rule I would give is: money never stops, so there are going to be constant transactions of money in a payment backend. We should put certain rules as such into this calculator microservice as well.
+>
+> The second rule is especially about floating point: we should use a decimal library for it, for example.
+>
+> And for the AWS and API key system, I just thought about it because I want to display that we can do that too. That's the cleanest way to do a microservice. You would have an API gateway, and through that gateway, you authenticate the user and you rate limit the request before they even reach the microservice. That was my thinking perspective
+
+Outcome: First draft of the ground rules: numbers travel as strings, results are exact or rounded and flagged, every failure is a named error, inputs have limits, and the service is stateless. In the gateway discussion, it was established that API keys identify clients rather than authenticate users, and that key creation itself needs a per-IP limit.
+
+### 3
+
+> Okay, let's keep this gateway logic in mind, but we don't have to implement it. We can just talk about it in our README, probably. Let's put those ground rules into the cloud.md file first so that when we start building it, we are going to follow those ground rules. Now I want to talk about the backend architecture that we're going to use here.  First of all, we are going to be using this skill https://github.com/cursor/plugins/blob/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md If you don't have it on the computer, just install it. We are going to run this code quality review skill to check the code that we're going to be writing, okay? And now let's talk about the microservices. Small note about floating numbeR; I would avoid IEEE 754 floating-point arithmetic for financial transactions. Instead, I would represent monetary amounts as 64-bit integers in currency-specific minor units, use fixed-point representations for exchange rates, and arbitrary-precision integers for intermediate calculations. I would enforce explicit rounding policies at monetary boundaries and maintain double-entry accounting invariants at the database level. What do you think about my approach?
+
+Outcome: CLAUDE.md written with the ground rules, and the review skill installed. Claude pointed out gaps in the money approach: amounts smaller than a cent, int64 overflow (which Go does not report), precision loss when inverting exchange rates, splitting amounts so the parts add up, and how double-entry balance is enforced in the database. It also proposed a backend layout with three packages.
+
+### 4
+
+> Okay, thank you. In my own opinion, our microservice should have:
+> - an HTTP transport layer
+> - routing
+> - JSON decoding
+> - validation
+>
+> Then we're going to have a calculator service, which is going to dispatch the operations, and it's going to dispatch domain errors. I think the most important part here is the decimal arithmetic. We should explicitly implement a precision policy and an exact decimal operation system. I think the backend should be the single source of truth for all calculations. React is going to handle the presentation, input, and interaction. We will use Zod for input validation, and I suggest we use just Base UI for a library. You can design it in  Artifacts. For state management, I would rather keep all state in the component unless other components require it. We can use a reducer or Redux. I think a native fetch API for now is enough. For testing, we can use Vitest on the frontend. For backend testing, I think we can use Go's testing and HTTP test, and for arithmetic, we can use ShopSpring Decimal. For deployment, we will use Docker and Docker Compose. And for CI/CD, we can use GitHub Actions. We are going to push this to GitHub. For CSS, let's focus on Tailwind CSS. Let's use that. And we have to use TypeScript with React for the frontend. How do you feel about this architecture? For project structure, let's use a monorepo. We will have a backend and a frontend. The backend will have its own Docker file. The frontend is going to have its own Docker file, but under that, there's going to be a big Docker Compose that is just going to start all of these, ready to deploy wherever. For the arithmetic issue and decimal issue that we might encounter, I can give you this as my choice.
+>
+> ```go
+> a := decimal.RequireFromString("0.1")
+> b := decimal.RequireFromString("0.2")
+>
+> result := a.Add(b)
+>
+> fmt.Println(result.String())
+> // 0.3
+> ```
+>
+> This is from ShopSpring Decimal, so we can use this. For REST API design, I think it's going to be a simple microservice. We can have a POST method with `calculate`, with API versioning, of course. The endpoint should be `API version 1 calculate`, and it's just going to execute the calculation. We should have a second endpoint to check the health of the service.
+>
+> ```go
+> package main
+>
+> import (
+>     "context"
+>     "errors"
+>     "log/slog"
+>     "net/http"
+>     "os"
+>     "os/signal"
+>     "syscall"
+>     "time"
+> )
+>
+> func main() {
+>     logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+>
+>     mux := http.NewServeMux()
+>     mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+>         logger.Info("health check", "remote", r.RemoteAddr)
+>         w.Header().Set("Content-Type", "application/json")
+>         w.Write([]byte(`{"status":"ok"}` + "\n"))
+>     })
+>
+>     srv := &http.Server{
+>         Addr:              ":8081",
+>         Handler:           mux,
+>         ReadHeaderTimeout: 5 * time.Second,
+>     }
+>
+>     ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+>     defer stop()
+>
+>     go func() {
+>         logger.Info("wallet service listening", "addr", srv.Addr)
+>         if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+>             logger.Error("server failed", "err", err)
+>             os.Exit(1)
+>         }
+>     }()
+>
+>     <-ctx.Done()
+>     logger.Info("shutting down gracefully")
+>
+>     shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+>     defer cancel()
+>
+>     if err := srv.Shutdown(shutdownCtx); err != nil {
+>         logger.Error("shutdown failed", "err", err)
+>     }
+>     logger.Info("server stopped")
+> }
+> ```
+>
+> Here is a code snippet that I wrote a couple of days ago that just checks the health, starts the server, and gracefully shuts it down. I think we should handle graceful shutdown as well, just in case the system goes off. Our request should have a JSON file. It has to accept a JSON file, operation, and operands, right? For operation, we're just going to handle all the operations that we had listed, and the response is going to turn us a result: a JSON and result. We should handle all of the error types. I think we should have a generic DTO. For example, if it returns us an error, let's display it like this. Let me just give you
+>
+> ```json
+> {
+>   "error": {
+>     "code": "DIVISION_BY_ZERO",
+>     "message": "Cannot divide by zero."
+>   }
+> }
+> ```
+>
+> See, it has a code, so we should have different codes for each error so that we can hold them however we want. We can observe them better if we have these. Do you have any issues with this architecture? I think it is pretty simple and solid.
+
+Outcome: A test program showed shopspring's default `Div` returning `0` for `0.000000000000000001 / 3`. The server snippet was reviewed: the Go process must be PID 1 in Docker to receive SIGTERM, `stop()` should be called after the signal arrives, and more server timeouts are needed. Operand-count checks moved into the operation table, each error code got a fixed HTTP status, and `useReducer` was chosen over Redux.
+
+### 5
+
+> I would choose shopspring/decimal for general financial apps and web APIs because its immutable API is much easier and safer to use, while cockroachdb/apd is the better pick for high-performance, high-precision calculations where memory allocations and strict rounding rules matter. I think we should stick with shopspring right now because we do not have to worry about performance or precision calculation, right?
+
+Outcome: shopspring chosen for its immutable API, with our own precision policy (34 significant digits, half-even, one rounding step). A test program confirmed that a division built on `QuoRem` rounds ties correctly. "Percentage" was defined as a% of b.
+
+### 6
+
+> Okay, since that is also settled, before we even start implementing these codes, let's now create our README file first. I think 80% of building a microservice or an application is asking the right questions and having the right answers, and the 20% is just coding. You're going to handle the coding, so let's write up a README file with the diagrams and everything we've talked about so far. We know what we want to build, right?
+>
+> Let's just draft those diagrams, and I'm going to take a look at the diagram. If I have any more questions, I'm going to address them back to you. Also, I hope you installed that thermonuclear skill that I've just given, because we're going to be running it to test the clarity of our code.
+
+Outcome: README written as the design spec, with five Mermaid diagrams, each rendered and checked. Number limits, error codes and the rules for `power` were set.
+
+### 7
+
+> since ngnix works as api gateway we should say that too, this app does not need API gateway, but since it is a microservice, we used ngnix as a placeholder api gateway
+
+Outcome: The README described nginx as a placeholder gateway. Claude pointed out that nginx answers its own errors with HTML pages, which breaks the JSON error format.
+
+### 8
+
+> why did we use ngnix in the first place?
+
+Outcome: nginx's original jobs: serving the static build and keeping the page and the API on one origin, which means no CORS and no public port on the calculator.
+
+### 9
+
+> yes, keep two containers and add the JSON errors also remove ngnix as apigateway then since it does not make any sense
+
+Outcome: The gateway wording was removed. nginx's own errors now use the JSON format (`SERVICE_UNAVAILABLE`), and `NOT_FOUND` and `METHOD_NOT_ALLOWED` were added for Go's router.
+
+### 10
+
+> is ngnix overenineering? I believe it is not if we are deploying a custom cloud instead of like vercel what do you think
+
+Outcome: nginx kept, because it is needed for the Docker deliverable. In the AWS design, CloudFront does its job instead. This also showed that API Gateway's default error bodies would break the JSON error format in production.
+
+### 11
+
+> yes, add the bullet and set up the repo
+
+Outcome: Production design now maps API Gateway errors to our JSON format. Repository initialised.

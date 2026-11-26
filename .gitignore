@@ -1,0 +1,18 @@
+# Go
+backend/bin/
+*.out
+coverage.html
+
+# Node
+node_modules/
+frontend/dist/
+frontend/coverage/
+
+# Local environment and editor files
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/
+.claude/settings.local.json
