@@ -10,7 +10,7 @@ Before submitting:
 
 A calculator with a Go backend that does exact decimal arithmetic. `0.1 + 0.2` returns `0.3`, and when a result has to be rounded, such as `1 ÷ 3`, the response says so.
 
-The Go backend is built and tested. So is the core of the React frontend: its number checks, its API client and the calculator's state machine. Not built yet: the frontend's interface (keypad, display and layout), the nginx container that will serve it ([design](docs/frontend-design.md)), CI, and the `power`, `sqrt` and `percentage` operations in the backend. The brief for this take-home allows 2–4 hours, so it favours a small, well-tested core over extra features.
+The Go backend is built and tested, with all seven operations. So is the core of the React frontend: its number checks, its API client and the calculator's state machine. Not built yet: the frontend's interface (keypad, display and layout), the nginx container that will serve it ([design](docs/frontend-design.md)), and CI. The brief for this take-home allows 2–4 hours, so it favours a small, well-tested core over extra features.
 
 <!-- Application screenshot goes here once the frontend exists. -->
 
@@ -52,14 +52,19 @@ The page is a placeholder until the interface is built. `npm run build` type-che
 
 ## Supported Operations
 
-| Operation  | Operands         | Result                                                    |
-| ---------- | ---------------- | --------------------------------------------------------- |
-| `add`      | `["0.1", "0.2"]` | `"0.3"`                                                   |
-| `subtract` | `["5", "7.5"]`   | `"-2.5"`                                                  |
-| `multiply` | `["1.5", "4"]`   | `"6"`                                                     |
-| `divide`   | `["1", "3"]`     | `"0.3333333333333333333333333333333333"`, `exact: false` |
+| Operation    | Operands          | Result                                                    |
+| ------------ | ----------------- | --------------------------------------------------------- |
+| `add`        | `["0.1", "0.2"]`  | `"0.3"`                                                   |
+| `subtract`   | `["5", "7.5"]`    | `"-2.5"`                                                  |
+| `multiply`   | `["1.5", "4"]`    | `"6"`                                                     |
+| `divide`     | `["1", "3"]`      | `"0.3333333333333333333333333333333333"`, `exact: false` |
+| `percentage` | `["12.5", "80"]`  | `"10"` (12.5% of 80)                                      |
+| `power`      | `["2", "-3"]`     | `"0.125"`                                                 |
+| `sqrt`       | `["2"]`           | `"1.414213562373095048801688724209698"`, `exact: false`  |
 
-Not built yet: `power`, `sqrt` and `percentage`.
+- `percentage` is a% of b, which is a × b ÷ 100.
+- `power` takes a whole-number exponent from −1000 to 1000. Anything else, such as `2.5` or `1001`, is `INVALID_EXPONENT`. The exponent is checked by value, so `"2.0"` and `"-0"` are accepted. `0^0` is `1`, and zero to a negative power is `DIVISION_BY_ZERO`.
+- `sqrt` takes one operand. A negative operand is `NEGATIVE_SQUARE_ROOT`. The square root of `-0` is `0`.
 
 ## API
 
@@ -92,7 +97,7 @@ Every error has the same shape. Clients should act on `code`; `message` is for p
 | 404    | `NOT_FOUND`, also for a path that is not in clean form, such as `/api/v1//calculate`                |
 | 405    | `METHOD_NOT_ALLOWED`, with an `Allow` header listing the methods the path accepts                   |
 | 413    | `INPUT_TOO_LARGE`: a body over 4 KiB, or an operand over the length or digit limit                  |
-| 422    | `DIVISION_BY_ZERO`, `OUT_OF_RANGE`                                                                  |
+| 422    | `DIVISION_BY_ZERO`, `NEGATIVE_SQUARE_ROOT`, `INVALID_EXPONENT`, `OUT_OF_RANGE`                      |
 | 500    | `INTERNAL_ERROR`: a bug, logged with the request ID                                                 |
 
 ```sh
@@ -119,6 +124,28 @@ curl -s http://127.0.0.1:8081/api/v1/calculate \
 
 ```json
 {"error":{"code":"INVALID_NUMBER","message":"Operands must be strings, for example \"0.1\"."}}
+```
+
+`sqrt` takes a single operand:
+
+```sh
+curl -s http://127.0.0.1:8081/api/v1/calculate \
+  -H 'Content-Type: application/json' \
+  -d '{"operation": "sqrt", "operands": ["2"]}'
+```
+
+```json
+{"result":"1.414213562373095048801688724209698","exact":false}
+```
+
+```sh
+curl -s http://127.0.0.1:8081/api/v1/calculate \
+  -H 'Content-Type: application/json' \
+  -d '{"operation": "power", "operands": ["2", "0.5"]}'
+```
+
+```json
+{"error":{"code":"INVALID_EXPONENT","message":"The exponent must be a whole number from -1000 to 1000."}}
 ```
 
 ### `GET /healthz`
@@ -163,10 +190,17 @@ The service runs in its own container (`backend/Dockerfile`). A planned nginx co
 The arithmetic uses [shopspring/decimal](https://github.com/shopspring/decimal), because its values are immutable. Its own rounding doesn't fit, though: `Div` rounds to 16 decimal places, so `0.000000000000000001 ÷ 3` comes back as `0`. So `internal/calc` owns all rounding:
 
 - Every result keeps 34 significant digits (the IEEE 754 decimal128 precision), rounded half to even.
-- Each result is rounded exactly once. Add, subtract and multiply are exact, and their result is rounded afterwards. Division truncates with `QuoRem`, and the exact remainder decides the last digit.
-- `calc` may use only an allowlist of 19 shopspring functions and methods, plus its `Decimal` type. That keeps out the ones that round or format on their own terms, such as `Div`, `Avg` and the `UseScientificNotation` setting. A test enforces it.
+- Each result is rounded exactly once. Add, subtract, multiply and percentage are exact, and their result is rounded afterwards. Division truncates with `QuoRem`, and the exact remainder decides the last digit. Square root and power are described below.
+- `calc` may use only an allowlist of 21 shopspring functions and methods, plus its `Decimal` type, and `Bit` and the integer `Sqrt` from `math/big`. That keeps out the ones that round or format on their own terms, such as `Div`, `Sqrt`, `Pow`, `Avg` and the `UseScientificNotation` setting. A test enforces it.
 
-[cockroachdb/apd](https://github.com/cockroachdb/apd) offers this rounding control directly, but writes results into mutable pointers. With shopspring, the precision rules are our own roughly 50 lines of code. They are tested against Python's `decimal` module, and the fuzz test compares every result with an exact `math/big` calculation that is rounded separately. Integer minor units, the usual choice for money, don't fit either: a calculator has no currency and no fixed scale.
+[cockroachdb/apd](https://github.com/cockroachdb/apd) offers this rounding control directly, but writes results into mutable pointers. With shopspring, the precision rules are our own roughly 100 lines of code. They are tested against Python's `decimal` module, and the fuzz tests compare every add, subtract, multiply, divide, percentage and power result with an exact `math/big` calculation that is rounded separately. Integer minor units, the usual choice for money, don't fit either: a calculator has no currency and no fixed scale.
+
+### Square root and power
+
+shopspring's `Sqrt` and `Pow` round to a fixed number of decimal places, like `Div`, so both have their own path in `precision.go`. Each keeps something exact to round from, so there is still only one rounding step.
+
+- **Square root:** the operand is scaled by an even power of ten to a whole number N with 67 or 68 digits. Go's `big.Int.Sqrt` gives q = ⌊√N⌋ exactly, which is the root truncated to 34 digits. The exact remainder N − q² decides the last digit: round up when it is greater than q. A square root can never land exactly halfway, so there is no tie to break. `exact` is `true` only when the remainder is zero.
+- **Power:** the base is raised to the exponent exactly, by repeated squaring. With at most 34 significant digits in the base and an exponent of at most 1000, the exact power has at most 34 000 digits, which takes under 2 ms even for the largest inputs. A positive power is then rounded once. A negative power is 1 divided by the exact power, through the same division as `divide`. A result outside the range is `OUT_OF_RANGE`, checked after rounding like every other operation.
 
 ### String-based numerical representation
 
@@ -218,7 +252,7 @@ stateDiagram-v2
   - After an operator or an error, the keys start a new typed number from `0`, so `.` gives `0.` and the sign key gives `-0`.
 - **Clear** returns to `EnteringFirst` from any state. In `Calculating`, every other key is ignored.
 - **Chaining.** When an operator started the request, the result becomes the first number with that operator chosen, so `2 + 3 × 4 =` sends `add(2, 3)` and then `multiply(5, 4)`. A second operator key in a row replaces the first.
-- **The `%` key.** After `a + b`, `%` sends `percentage(b, a)` and the result replaces `b`, so `50 + 10 % =` gives `55`. Like any result, it is replaced by the next digit: `50 + 10 % 3 =` sends `add(50, 3)`. With no operator chosen, `x %` sends `percentage(x, 1)`, which is x ÷ 100. Right after an operator, `%` is ignored. The backend does not have `percentage`, `power` or `sqrt` yet, so today those requests come back as `UNSUPPORTED_OPERATION`.
+- **The `%` key.** After `a + b`, `%` sends `percentage(b, a)` and the result replaces `b`, so `50 + 10 % =` gives `55`. Like any result, it is replaced by the next digit: `50 + 10 % 3 =` sends `add(50, 3)`. With no operator chosen, `x %` sends `percentage(x, 1)`, which is x ÷ 100. Right after an operator, `%` is ignored.
 - **Rounded results.** A result keeps its `exact` flag wherever it goes: `ShowingResult`, the first number after an operator, or the second number after `%`. So the display can mark it.
 
 The reducer does no arithmetic and no fetching. Entering `Calculating` is the request: the state holds the request to send, where its result goes (`ShowingResult`, `OperatorChosen` with the next operator, or back into the second number), and the number that was on the display. `useCalculator` runs one effect per request object, sends it, and dispatches `settled` with that request and its outcome. The reducer settles only when it is the same request object it is waiting for, so a late answer to a cleared request is ignored. Leaving `Calculating` (Clear) or unmounting also aborts the fetch through its `AbortController`. The hook returns `{ state, press }`; `press` takes keypad keys only, never `settled`.
@@ -265,9 +299,9 @@ Last measured on 2026-11-26:
 | `internal/calc`    | 100%     |             |
 | `internal/httpapi` | 100%     |             |
 | `cmd/calculator`   | 84.8%    | `main()` itself; the error returns for a bad flag, a failed shutdown and a malformed health-check URL; the `PORT` default |
-| Total              | 96.7%    |             |
+| Total              | 97.3%    |             |
 
-- **`internal/calc`:** expected results come from Python's `decimal` module, an independent implementation of the same rounding rules. The cases include half-even ties and results that round past 10¹⁰⁰. A fuzz test checks that any input gives either a named error or a valid operand, that every result and its `exact` flag match an exact `math/big` calculation rounded separately, and that exact results survive the inverse operation. One test runs the shared number cases. Another type-checks the package and fails on any of these:
+- **`internal/calc`:** expected results come from Python's `decimal` module, an independent implementation of the same rounding rules. For power, Python computes the exact power and rounds it once. `backend/internal/calc/testdata/reference.py` (standard library only) recomputes every row of the two result tables; run `python3 testdata/reference.py` in `backend/internal/calc`, and it exits non-zero if any expected value, `exact` flag or error code differs. The cases include half-even ties, results that round past 10¹⁰⁰ or land exactly on 10⁻¹⁰⁰, exponents of ±1000 and 1001, `2.5`, `-0` and `1.0`, and square roots of exact squares, tiny and huge numbers and zero. A fuzz test checks that any add, subtract, multiply, divide or percentage gives either a named error or a valid operand, that every result and its `exact` flag match an exact `math/big` calculation rounded separately, and that exact results of the first four survive the inverse operation. Two more fuzz tests cover power and square root. Every power, its `exact` flag and every refusal must match the same `math/big` reference, which raises numerator and denominator separately. An exact power of −1 taken again gives the base back, and the square root of an exact square gives the base's absolute value. An exact root squared gives the operand back, and a rounded root r is within half a unit in its last place, checked exactly by squaring r minus and plus that half unit. One test runs the shared number cases. Another type-checks the package and fails on any of these:
   - a value of float type
   - a function or method from another package outside the allowlist, which keeps out shopspring's self-rounding calls and anything that changes a value in place
   - an import that could do I/O, read the clock or log
@@ -301,6 +335,7 @@ CI is not set up yet.
 
 - **Precision and rounding:** every result keeps 34 significant digits, rounded half to even, and `exact: false` marks a rounded result. Inputs over the number limits are rejected, never rounded.
 - **Operations:** one operation per request. The frontend's state machine chains them left to right like a pocket calculator, so `2 + 3 × 4` gives `20`, with no operator precedence. Division by zero is an error, not infinity.
+- **Power, square root and percentage:** `0^0` is `1`, the convention most programming languages use. The exponent is limited to whole numbers from −1000 to 1000: a fractional exponent usually gives an irrational result, with no exact value to round once from, and the limit keeps the exact power to at most 34 000 digits. `percentage` means "a% of b", so `percentage(50, 200)` is `100`.
 - **Scope:** there is no authentication, rate limiting or API gateway. An AWS design with them is in [docs/production-design.md](docs/production-design.md), not built. There is no history or storage. This is not a money library: it has no currencies, minor units or allocation rules.
 
 ## AI Usage

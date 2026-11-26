@@ -13,6 +13,8 @@ const (
 	InputTooLarge        Code = "INPUT_TOO_LARGE"
 	OutOfRange           Code = "OUT_OF_RANGE"
 	DivisionByZero       Code = "DIVISION_BY_ZERO"
+	InvalidExponent      Code = "INVALID_EXPONENT"
+	NegativeSquareRoot   Code = "NEGATIVE_SQUARE_ROOT"
 )
 
 // Error is a calculation rejected because of its input. It never signals a bug.

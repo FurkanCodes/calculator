@@ -50,7 +50,9 @@ Each rule needs a test or a lint check behind it. A rule with no check is not do
 3. **Results are exact, or rounded and flagged.** Math uses `github.com/shopspring/decimal`, chosen for its immutable API. Its defaults round to a fixed number of decimal places, so small results silently become 0 (`0.000000000000000001 / 3` and `Sqrt(1e-40)` both return 0). `internal/calc` therefore owns one precision policy: 34 significant digits, half-even rounding, one rounding step per result. No other code rounds.
    - Add, subtract and multiply are exact in shopspring: compute, then round once to 34 significant digits with `RoundBank`.
    - Divide uses `QuoRem` at a computed number of decimal places and rounds half-even from the remainder.
-   - Square root and power get their own policy path when they are added.
+   - Percentage multiplies, then moves the decimal point two places, which is exact; it rounds like multiply.
+   - Square root takes the exact integer root of the operand scaled to 34 result digits, and rounds once from the remainder. A tie is impossible.
+   - Power is computed exactly by repeated squaring and rounded once; a negative exponent divides 1 by the positive power under the divide policy.
    - `exact` is `false` when the policy changed the result.
    - `calc` may use only the shopspring functions on the allowlist in `calc/rules_test.go`. That keeps out the ones that round on their own (`Div`, `Avg`, `Round`, `Sqrt`, `Pow*` and the rest), the package-wide settings (`DivisionPrecision`, `UseScientificNotation`, `TrimTrailingZeros`) and the `Require*` constructors, which panic. Adding a name to the allowlist is a deliberate change.
    - Request types hold operands as `string`, never `decimal.Decimal`: its JSON decoder silently accepts bare JSON numbers, which breaks rule 2.

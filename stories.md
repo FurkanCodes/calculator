@@ -16,9 +16,9 @@ Everything this project is meant to deliver, in build order. An item is ticked o
 - [x] Precision policy: 34 significant digits, half-even, rounded once, with the `exact` flag
 - [x] Shared number cases in `testdata/numbers.json`
 - [x] Tests: Python `decimal` reference values, fuzz test, and the source scan that bans floats and self-rounding calls
-- [ ] `power`: integer exponents from −1000 to 1000, `0^0 = 1`, zero to a negative power gives `DIVISION_BY_ZERO`, a bad exponent gives `INVALID_EXPONENT` **(brief, optional)**
-- [ ] `sqrt`: 34 significant digits under the same policy, and a negative operand gives `NEGATIVE_SQUARE_ROOT` **(brief, optional)**
-- [ ] `percentage`: a% of b, which is a × b ÷ 100 **(brief, optional)**
+- [x] `power`: integer exponents from −1000 to 1000, `0^0 = 1`, zero to a negative power gives `DIVISION_BY_ZERO`, a bad exponent gives `INVALID_EXPONENT` **(brief, optional)**
+- [x] `sqrt`: 34 significant digits under the same policy, and a negative operand gives `NEGATIVE_SQUARE_ROOT` **(brief, optional)**
+- [x] `percentage`: a% of b, which is a × b ÷ 100 **(brief, optional)**
 
 ## 3. Backend HTTP API (`internal/httpapi`)
 
