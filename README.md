@@ -60,11 +60,32 @@ Settings live in one file: copy `.env.example` at the repository root to `.env` 
 
 ## API
 
-`POST /api/v1/calculate` takes `{"operation": "...", "operands": ["...", ...]}` and returns `{"result": "...", "exact": true|false}`. Numbers are always JSON strings. The full description is in the Swagger UI at `/docs/`, from `GET /api/v1/openapi.json`.
+All on `http://localhost:8080`, through nginx:
 
-A number is a plain decimal (`-12.5`, not `1e5` or `+3`), at most 256 bytes and 34 significant digits, and zero or between 10⁻¹⁰⁰ and 10¹⁰⁰.
+| Method | Path | What it does |
+| ------ | ---- | ------------ |
+| `POST` | `/api/v1/calculate` | Runs one operation and returns the result |
+| `GET`  | `/api/v1/openapi.json` | The OpenAPI 3.1 description of the API |
+| `GET`  | `/docs/` | Swagger UI, where "Try it out" sends real requests |
+| `GET`  | `/healthz` | nginx's health check (the Go service has its own inside Docker) |
 
-Every error has the same shape:
+**Request** (`POST /api/v1/calculate`, JSON body):
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `operation` | string | `add`, `subtract`, `multiply`, `divide`, `power`, `sqrt` or `percentage` |
+| `operands` | array of strings | Two numbers, or one for `sqrt`, such as `["10", "4"]` |
+
+**Response** (`200`):
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `result` | string | The answer, as a decimal string |
+| `exact` | boolean | `false` when the result was rounded to 34 significant digits |
+
+Numbers are always JSON strings. A number is a plain decimal (`-12.5`, not `1e5` or `+3`), at most 256 bytes and 34 significant digits, and zero or between 10⁻¹⁰⁰ and 10¹⁰⁰.
+
+**Errors** all have the same shape:
 
 ```sh
 curl -s http://localhost:8080/api/v1/calculate \
@@ -76,15 +97,21 @@ curl -s http://localhost:8080/api/v1/calculate \
 {"error":{"code":"DIVISION_BY_ZERO","message":"Cannot divide by zero."}}
 ```
 
-| Status | Codes |
-| ------ | ----- |
-| 400    | `INVALID_REQUEST`, `INVALID_NUMBER`, `WRONG_OPERAND_COUNT`, `UNSUPPORTED_OPERATION` |
-| 404    | `NOT_FOUND` |
-| 405    | `METHOD_NOT_ALLOWED` |
-| 413    | `INPUT_TOO_LARGE` |
-| 422    | `DIVISION_BY_ZERO`, `NEGATIVE_SQUARE_ROOT`, `INVALID_EXPONENT`, `OUT_OF_RANGE` |
-| 500    | `INTERNAL_ERROR` |
-| 503    | `SERVICE_UNAVAILABLE` (from nginx, when the service is down) |
+| Status | Code | When |
+| ------ | ---- | ---- |
+| 400 | `INVALID_REQUEST` | The body isn't one JSON object with exactly `operation` and `operands` |
+| 400 | `INVALID_NUMBER` | An operand isn't a plain decimal string, such as `"1e5"` or the JSON number `5` |
+| 400 | `WRONG_OPERAND_COUNT` | Too many or too few operands for the operation |
+| 400 | `UNSUPPORTED_OPERATION` | The operation isn't one of the seven above |
+| 404 | `NOT_FOUND` | No such path |
+| 405 | `METHOD_NOT_ALLOWED` | The path exists, but not with that method |
+| 413 | `INPUT_TOO_LARGE` | The body is over 4 KiB, or an operand is over 256 bytes or 34 significant digits |
+| 422 | `DIVISION_BY_ZERO` | Dividing by zero, or zero to a negative power |
+| 422 | `NEGATIVE_SQUARE_ROOT` | The square root of a negative number |
+| 422 | `INVALID_EXPONENT` | A power whose exponent isn't a whole number from −1000 to 1000 |
+| 422 | `OUT_OF_RANGE` | An operand or the result is outside 10⁻¹⁰⁰ to 10¹⁰⁰ |
+| 500 | `INTERNAL_ERROR` | A bug; the service logs the cause |
+| 503 | `SERVICE_UNAVAILABLE` | Sent by nginx when the Go service is down |
 
 ## Architecture
 
