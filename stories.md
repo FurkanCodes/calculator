@@ -62,7 +62,7 @@ Everything this project is meant to deliver, in build order. An item is ticked o
 ## 6. Frontend (`frontend/`)
 
 - [x] Decide how the `%` key works and how long results are shown (in `docs/frontend-design.md`)
-- [ ] Visual design and layout, drafted as an Artifact
+- [x] Visual design and layout, drafted as an Artifact ("Ledger", spec in `docs/frontend-design.md`)
 - [ ] Scaffold: Vite, React, TypeScript, Tailwind CSS, Base UI **(brief)**
 - [ ] Zod number schema, tested against `testdata/numbers.json` **(brief: input validation)**
 - [ ] API client: `fetch`, Zod validation of responses, request cancelling with `AbortController`

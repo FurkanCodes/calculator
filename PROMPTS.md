@@ -289,3 +289,9 @@ Outcome: Rendered and checked the frontend state diagram, then pushed `feature/f
 > yes start the visual design artifact
 
 Outcome: With no design system and the "precise instrument" direction (both chosen by the user), drafted a design canvas with three versions as phone screens (Ledger, Graphite, Blueprint) and a sheet of display states. Checked and pushed `feature/optional-operations` after its rebase, adding `percentage` to the `math/big` fuzz reference. Started code reviews of both open branches.
+
+### 26
+
+> lets do A
+
+Outcome: Chose "Ledger" as the visual design. Wrote its spec into `docs/frontend-design.md`: type, colour tokens with contrast checked, layout, keypad, keyboard map and display states. Fixed the dimmed "calculating" colour, which failed contrast in the draft. Closed the last open decision in `CLAUDE.md`.
