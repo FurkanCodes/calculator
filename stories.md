@@ -37,8 +37,16 @@ Everything this project is meant to deliver, in build order. An item is ticked o
 
 ## 5. Code quality and merge
 
-- [ ] Run the thermo-nuclear code quality review on `feature/backend-core` (in progress)
-- [ ] Fix the review's structural findings
+- [x] Run the thermo-nuclear code quality review on `feature/backend-core` (verdict: not approved, 2 blockers)
+- [ ] Fix the review's findings:
+  - [ ] One error table keyed by code, and the real cause logged on a 500 (blocker)
+  - [ ] Type-checked allowlist for `calc`'s shopspring calls, floats and imports, replacing the name deny-list (blocker)
+  - [ ] JSON 405 for every route, including `/healthz`
+  - [ ] Shape errors in `operands` return `INVALID_REQUEST`; exact, case-sensitive keys
+  - [ ] `endpoint` writes success responses too, so it logs the status it actually sent
+  - [ ] Fuzz test only uses operations that have an inverse
+  - [ ] `number.go`: check the format first, and write the range check as 10⁻¹⁰⁰ ≤ |x| < 10¹⁰⁰
+  - [ ] Pin the 4 KiB body limit with a 4096-byte request accepted and a 4097-byte one rejected
 - [ ] Merge `feature/backend-core` into `main`
 
 ## 6. Frontend (`frontend/`)
@@ -62,6 +70,7 @@ Everything this project is meant to deliver, in build order. An item is ticked o
 
 - [ ] GitHub Actions: backend vet and test with coverage, and frontend lint and test with coverage, uploading both coverage reports **(brief: coverage report)**
 - [ ] Compose smoke test: one calculation end to end, then the JSON `SERVICE_UNAVAILABLE` with the calculator stopped
+- [ ] Container rule checks: hadolint (exec-form `ENTRYPOINT`), and the 5-second shutdown limit stays under Compose's `stop_grace_period`
 - [ ] CI badge in the README
 
 ## 9. Submission

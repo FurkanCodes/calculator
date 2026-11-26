@@ -210,7 +210,7 @@ Outcome: Added `POST /api/v1/calculate`, with strict JSON decoding (operands mus
 
 > Run the code quality review and report back
 
-Outcome: The skill can only be started from its slash command, so a separate reviewer agent was given the skill file and the branch, but none of Claude's reasoning about the code. Findings are in the next session entry.
+Outcome: The skill can only be started from its slash command, so a separate reviewer agent was given the skill file and the branch, but none of Claude's reasoning about the code. Verdict: not approved. The two blockers were a silent 500 fallback in the error-to-status mapping, and a banned-call test that misses real violations (shopspring's `Avg`, its formatting globals, float literals) and leaves rule 4 unchecked. The fixes are listed in `stories.md`.
 
 ### 16
 
