@@ -9,7 +9,7 @@ Take-home assignment: a React + TypeScript calculator that calls a Go REST servi
 - One Go service (`backend/`) and one React app (`frontend/`) in one repo.
 - Operations: `add`, `subtract`, `multiply`, `divide`. Then `power`, `sqrt` and `percentage`, once the core is done and tested.
 - Described in the README only, not built: the API gateway, API keys, rate limiting and the AWS deployment.
-- Docker Compose runs two containers: `web` and `calculator`. In `web`, nginx serves the built frontend and forwards `/api/*` to the service, so the page and the API share one origin. nginx is not an API gateway: don't describe it as one. The calculator has no public port.
+- Docker Compose runs two containers: `web` and `calculator`. In `web`, nginx serves the built frontend and forwards `/api/*` to the service, so the page and the API share one origin. nginx is not an API gateway: don't describe it as one. The calculator has no public port. Until the `web` container exists, `docker-compose.yml` publishes it on `127.0.0.1:8081` only; remove that mapping when `web` is added.
 
 ## Architecture
 

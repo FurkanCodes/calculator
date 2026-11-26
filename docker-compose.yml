@@ -1,0 +1,22 @@
+services:
+  calculator:
+    build: ./backend
+    environment:
+      PORT: "8081"
+    # Temporary: published on localhost only, until the web container exists.
+    # After that, nginx is the only way in and this mapping is removed.
+    ports:
+      - "127.0.0.1:8081:8081"
+    healthcheck:
+      # The image has no shell or curl, so the binary checks itself.
+      test: ["CMD", "/calculator", "-healthcheck"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    # The service's own shutdown limit is 5 seconds, inside this window.
+    stop_grace_period: 10s
+    restart: unless-stopped
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
