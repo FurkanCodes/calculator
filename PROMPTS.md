@@ -355,3 +355,9 @@ Outcome: Made the slimmed OpenAPI fixes and merged the branch:
 - Zod `jitless`, so the app has no CSP violations.
 
 Added `scripts/smoke.sh` and one CI workflow (backend, frontend, Compose smoke test), and dropped the hadolint, shutdown-timing and badge stories. Changed `CLAUDE.md` so full reviews are only for changes to calculation or API behaviour. Ran the final check against the brief.
+
+### 35
+
+> public, trim read me, do not do a lot of words, stick with simple yet effective readme. keep aws in product design.
+
+Outcome: Cut the README from 440 to 142 lines: quick start, local development, operations, API with the error table, one architecture diagram, six one-line design decisions, testing and coverage, assumptions, and AI usage. The detail moved word for word to `docs/design.md`, and the AWS design stays in `docs/production-design.md`, linked from the README. The repo was scanned for secrets and then made public.

@@ -34,7 +34,7 @@ Take-home assignment: a React + TypeScript calculator that calls a Go REST servi
 - Input model: one operation at a time, evaluated left to right. The backend computes every result, and the frontend never does arithmetic.
 - The `%` key: after `a + b`, `%` sends `percentage(b, a)` and the result replaces `b` (so `50 + 10 % =` gives `55`). With no operator chosen, `x %` sends `percentage(x, 1)`, which is x ÷ 100. Right after an operator, `%` is ignored.
 - Long results: the display shrinks the text down to a minimum size, then scrolls horizontally. A copy button copies the full value.
-- State stays in the component that uses it. The calculator's state machine is a `useReducer` with a pure reducer (states as in the README diagram).
+- State stays in the component that uses it. The calculator's state machine is a `useReducer` with a pure reducer (states as in the diagram in `docs/design.md`).
 - Zod validates both user input and API responses. Native `fetch`. Tests use Vitest and React Testing Library.
 
 ### Tooling
@@ -80,7 +80,7 @@ Each rule needs a test or a lint check behind it. A rule with no check is not do
 ## Code quality
 
 - Before merging a branch that changes calculation or API behaviour, run `/thermo-nuclear-code-quality-review` on its diff and fix what is wrong or untrue. Don't add machinery only to prove things: the brief's budget favours a small core. Smaller branches (CI, docs, tooling) are checked directly.
-- Standard library first. Every added dependency needs a reason in the README's design decisions.
+- Standard library first. Every added dependency needs a reason in `docs/design.md`. Keep the README short: quick start, operations, API, a few design decisions, testing; detail goes in `docs/design.md`.
 
 ## Deliverables
 
