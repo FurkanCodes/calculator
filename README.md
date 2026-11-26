@@ -9,7 +9,7 @@ Before submitting:
 
 A calculator with a Go backend that does exact decimal arithmetic. `0.1 + 0.2` returns `0.3`, and when a result has to be rounded, such as `1 ÷ 3`, the response says so.
 
-The Go backend is built and tested, with all seven operations, and so is the React frontend: a keypad that also works from the keyboard, a display that marks rounded results, and error text for each failure. So is the web container: nginx serves the frontend and forwards API calls to the backend. Not built yet: CI. The brief for this take-home allows 2–4 hours, so it favours a small, well-tested core over extra features.
+The Go backend is built and tested, with all seven operations, and so is the React frontend: a keypad that also works from the keyboard, a display that marks rounded results, and error text for each failure. So is the web container: nginx serves the frontend and forwards API calls to the backend, and so is CI. The brief for this take-home allows 2–4 hours, so it favours a small, well-tested core over extra features.
 
 <!-- Application screenshot goes here: still to take, at the submission step. -->
 
@@ -427,7 +427,13 @@ Last measured on 2026-11-26, 272 tests: 99.6% of statements and lines, 99.5% of 
 - **`display.ts`, `errors.ts`, `keys.ts`:** the expression and value for every state, the text for every error code, and the keyboard map and which keys are left to other inputs.
 - **Components:** rendered with React Testing Library, with `fetch` mocked. Key presses and keyboard input send the right requests and show the results; a mouse press leaves focus where it was, so `Enter` then means equals, while a key reached with Tab is pressed by `Enter`; after unmount, keys send nothing; the rounded chip appears only when `exact` is false; every error code shows its text and never the code; an unknown code shows the backend's message; the unreachable and invalid-response states; Copy writes the full value to the clipboard, and selects it when the clipboard fails; Clear while calculating aborts the request and ignores its late answer. jsdom does no layout, so the font-size tests give elements the widths a browser would, including a refit when the web font loads.
 
-CI is not set up yet.
+### CI
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request:
+
+- **backend:** `go vet`, then `go test -race` with coverage, uploaded as the `backend-coverage` artifact (`coverage.out` and an HTML report).
+- **frontend:** lint, typecheck, Vitest with coverage (uploaded as `frontend-coverage`), and the production build.
+- **smoke:** builds and starts the full stack with Compose and runs `scripts/smoke.sh`: the page, one calculation and one backend error through nginx, then the JSON `503 SERVICE_UNAVAILABLE` with the calculator stopped. The same script runs locally after `docker compose up -d --build --wait`.
 
 ## Assumptions
 
