@@ -99,3 +99,7 @@ Everything this project is meant to deliver, in build order. An item is ticked o
 ## 11. Docs panel
 
 - [x] A short guide beside the calculator (left on wide screens, below it on phones), with links to Swagger UI, `openapi.json` and the repo; checked in Chrome at phone, tablet and desktop sizes
+
+## 12. Settings
+
+- [x] One root `.env` (from `.env.example`) for the values that change per machine: `WEB_PORT` for Compose, `API_PROXY_TARGET` for the dev server

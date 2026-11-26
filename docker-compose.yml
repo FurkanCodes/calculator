@@ -8,8 +8,9 @@ services:
       dockerfile: frontend/Dockerfile
     # The only published port. Bound to localhost, so the app is reachable from
     # this machine and not from the network; use "8080:8080" to open it up.
+    # WEB_PORT in .env (see .env.example) changes the port on this machine.
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:${WEB_PORT:-8080}:8080"
     depends_on:
       calculator:
         condition: service_healthy

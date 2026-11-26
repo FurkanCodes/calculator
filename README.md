@@ -25,7 +25,7 @@ curl -s http://localhost:8080/api/v1/calculate \
 {"result":"0.3","exact":true}
 ```
 
-`docker compose down` stops it.
+`docker compose down` stops it. Port 8080 taken? Copy `.env.example` to `.env` and set `WEB_PORT`.
 
 ## Local Development
 
@@ -43,6 +43,8 @@ cd frontend
 npm ci
 npm run dev                      # http://localhost:5173, forwards /api to :8081
 ```
+
+Settings live in one file: copy `.env.example` at the repository root to `.env` and edit it. It sets the published port (`WEB_PORT`) and where the dev server forwards `/api` (`API_PROXY_TARGET`). It is git-ignored and holds no secrets; the app itself always calls the relative `/api/v1/calculate`.
 
 ## Operations
 
