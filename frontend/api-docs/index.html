@@ -1,0 +1,22 @@
+<!doctype html>
+<!--
+  The API documentation page, served by the web container at /docs/. Swagger UI
+  renders the calculator's OpenAPI description, which the service itself serves
+  at /api/v1/openapi.json. Every file comes from this origin: the Dockerfile
+  copies Swagger UI from the pinned swagger-ui-dist package, and init.js starts
+  it, so the page has no inline script.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Calculator API</title>
+    <link rel="icon" type="image/png" href="favicon-32x32.png" />
+    <link rel="stylesheet" href="swagger-ui.css" />
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="swagger-ui-bundle.js"></script>
+    <script src="init.js"></script>
+  </body>
+</html>

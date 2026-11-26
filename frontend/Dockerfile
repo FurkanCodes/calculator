@@ -18,6 +18,19 @@ RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
 COPY testdata/numbers.json /src/testdata/numbers.json
 COPY frontend/ ./
 RUN npm run build
+# The API documentation, served at /docs/: Swagger UI's stylesheet, script and
+# icon from the pinned swagger-ui-dist package, with its licence files, and the
+# page that starts it on /api/v1/openapi.json. The standalone preset (a top bar
+# for loading other documents) and the source maps are left out.
+RUN mkdir dist/docs && \
+    cp node_modules/swagger-ui-dist/swagger-ui.css \
+       node_modules/swagger-ui-dist/swagger-ui-bundle.js \
+       node_modules/swagger-ui-dist/swagger-ui-bundle.js.LICENSE.txt \
+       node_modules/swagger-ui-dist/favicon-32x32.png \
+       node_modules/swagger-ui-dist/LICENSE \
+       node_modules/swagger-ui-dist/NOTICE \
+       api-docs/index.html api-docs/init.js \
+       dist/docs/
 
 # nginx-unprivileged runs as user 101 and listens on 8080, so it needs no root
 # and no capabilities. Its temp files and pid file live in /tmp, which Compose

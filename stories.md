@@ -94,5 +94,5 @@ Everything this project is meant to deliver, in build order. An item is ticked o
 
 - [x] Hand-written OpenAPI 3.1 description in `backend/internal/httpapi/openapi.json`, served at `GET /api/v1/openapi.json`
 - [x] Contract tests: operations, codes and statuses, number rules, routes, and every example sent through the real handler
-- [ ] Swagger UI at `/docs/`, self-hosted in the web container, with "Try it out" checked in a browser
-- [ ] How to view the docs in development
+- [x] Swagger UI at `/docs/`, self-hosted in the web container, with "Try it out" checked in a browser
+- [x] How to view the docs in development
