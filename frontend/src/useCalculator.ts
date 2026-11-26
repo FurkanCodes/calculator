@@ -18,7 +18,7 @@ export interface Calculator {
 export function useCalculator(): Calculator {
   const [state, dispatch] = useReducer(reducer, initialState)
   // The reducer makes a new request object each time it enters Calculating,
-  // and keeps the same one while it ignores keys, so this runs once per request.
+  // and keeps the same one while keys wait for the answer, so this runs once per request.
   const request = state.status === 'Calculating' ? state.request : null
 
   useEffect(() => {
