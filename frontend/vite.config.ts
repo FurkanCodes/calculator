@@ -7,7 +7,8 @@ export default defineConfig({
   server: {
     // In development the Go service runs on its own port. In production nginx
     // serves the page and /api/* from one origin, so the client uses relative URLs.
-    proxy: { '/api': 'http://127.0.0.1:8081' },
+    // API_PROXY_TARGET points the dev server at a backend on another port.
+    proxy: { '/api': process.env.API_PROXY_TARGET ?? 'http://127.0.0.1:8081' },
   },
   test: {
     environment: 'jsdom',

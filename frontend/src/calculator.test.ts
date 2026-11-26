@@ -3,6 +3,7 @@ import type { CalculateOutcome } from './api'
 import {
   type Action,
   applyEntryKey,
+  type Calculation,
   type Digit,
   type EntryKey,
   initialState,
@@ -69,14 +70,13 @@ const enteringSecond: State = {
   operator: 'add',
   second: typed('3'),
 }
-const calculating: State = {
-  status: 'Calculating',
+const addition: Calculation = {
   request: { operation: 'add', operands: ['12', '3'] },
   target: { to: 'ShowingResult' },
-  shown: typed('3'),
 }
-const showingResult: State = { status: 'ShowingResult', result: result('15') }
-const error: State = { status: 'Error', failure: { kind: 'unreachable' } }
+const calculating: State = { status: 'Calculating', ...addition, shown: typed('3') }
+const showingResult: State = { status: 'ShowingResult', result: result('15'), calculation: addition }
+const error: State = { status: 'Error', failure: { kind: 'unreachable' }, calculation: addition }
 
 const everyState = { enteringFirst, operatorChosen, enteringSecond, calculating, showingResult, error }
 
@@ -129,11 +129,12 @@ describe('the state diagram', () => {
     })
   })
 
-  it('Calculating --result--> ShowingResult, keeping the exact flag', () => {
+  it('Calculating --result--> ShowingResult, keeping the exact flag and the calculation', () => {
     expect(run(calculating, succeed('15'))).toEqual(showingResult)
     expect(run(calculating, succeed(ONE_THIRD, false))).toEqual({
       status: 'ShowingResult',
       result: result(ONE_THIRD, false),
+      calculation: addition,
     })
   })
 
@@ -157,8 +158,24 @@ describe('the state diagram', () => {
     ['an error with an unknown code', { kind: 'error', code: null, message: 'New.' }],
     ['an invalid response', { kind: 'invalidResponse' }],
     ['no connection', { kind: 'unreachable' }],
-  ])('Calculating --%s--> Error', (_name, outcome) => {
-    expect(run(calculating, answer(outcome))).toEqual({ status: 'Error', failure: outcome })
+  ])('Calculating --%s--> Error, keeping the calculation', (_name, outcome) => {
+    expect(run(calculating, answer(outcome))).toEqual({ status: 'Error', failure: outcome, calculation: addition })
+  })
+
+  it('keeps the calculation of an operator- or %-started request on Error, with its target', () => {
+    expect(run(enteringSecond, multiply, answer(divisionByZero))).toEqual({
+      status: 'Error',
+      failure: divisionByZero,
+      calculation: { ...addition, target: { to: 'OperatorChosen', operator: 'multiply' } },
+    })
+    expect(run(enteringSecond, percent, answer(divisionByZero))).toEqual({
+      status: 'Error',
+      failure: divisionByZero,
+      calculation: {
+        request: { operation: 'percentage', operands: ['3', '12'] },
+        target: { to: 'EnteringSecond', first: typed('12'), operator: 'add' },
+      },
+    })
   })
 
   it('ShowingResult --operator--> OperatorChosen, with the result as the first number', () => {
@@ -277,7 +294,7 @@ describe('entry keys on a typed number', () => {
     expect(reducer(second, decimalPoint)).toBe(second)
   })
 
-  it('drop a trailing decimal point from the operand', () => {
+  it('drop a trailing decimal point from the operand and from the number shown while calculating', () => {
     expect(run(initialState, ...type('5.'), add)).toEqual({
       status: 'OperatorChosen',
       first: typed('5'),
@@ -285,8 +302,13 @@ describe('entry keys on a typed number', () => {
     })
     expect(run(operatorChosen, ...type('3.'), equals)).toMatchObject({
       request: { operation: 'add', operands: ['12', '3'] },
-      shown: typed('3.'),
+      shown: typed('3'),
     })
+    expect(run(initialState, ...type('5.'), squareRoot)).toMatchObject({
+      request: { operation: 'sqrt', operands: ['5'] },
+      shown: typed('5'),
+    })
+    expect(run(initialState, ...type('5.'), percent)).toMatchObject({ shown: typed('5') })
   })
 })
 
@@ -302,6 +324,15 @@ describe('entry keys on a result', () => {
     const negated = run(rounded, toggleSign)
     expect(negated).toEqual({ status: 'ShowingResult', result: result(`-${ONE_THIRD}`, false) })
     expect(run(negated, toggleSign)).toEqual(rounded)
+  })
+
+  it('the sign key drops the calculation, which no longer describes the result', () => {
+    expect(run(showingResult, toggleSign)).toEqual({ status: 'ShowingResult', result: result('-15') })
+  })
+
+  it('a key that changes nothing keeps the calculation', () => {
+    expect(reducer(showingResult, equals)).toBe(showingResult)
+    expect(reducer(error, add)).toBe(error)
   })
 
   it('the sign key leaves a zero result as it is', () => {
@@ -352,7 +383,7 @@ describe('the % key', () => {
 
   it('on the first number, sends value% of 1 and shows the result', () => {
     const shown = run(initialState, ...type('10'), percent, succeed('0.1'))
-    expect(shown).toEqual({ status: 'ShowingResult', result: result('0.1') })
+    expect(shown).toMatchObject({ status: 'ShowingResult', result: result('0.1') })
     expect(run(shown, add)).toEqual({ status: 'OperatorChosen', first: result('0.1'), operator: 'add' })
   })
 
@@ -368,7 +399,7 @@ describe('the % key', () => {
     ['the second number', run(enteringSecond, percent)],
     ['the first number', run(enteringFirst, percent)],
   ])('on %s, turns an error into Error', (_name, state) => {
-    expect(run(state, answer(divisionByZero))).toEqual({ status: 'Error', failure: divisionByZero })
+    expect(run(state, answer(divisionByZero))).toMatchObject({ status: 'Error', failure: divisionByZero })
   })
 })
 
@@ -453,6 +484,6 @@ describe('a whole calculation', () => {
     expect(state).toMatchObject({ request: { operation: 'add', operands: ['2', '3'] } })
     state = run(state, succeed('5'), digit('4'), equals)
     expect(state).toMatchObject({ request: { operation: 'multiply', operands: ['5', '4'] } })
-    expect(run(state, succeed('20'))).toEqual({ status: 'ShowingResult', result: result('20') })
+    expect(run(state, succeed('20'))).toMatchObject({ status: 'ShowingResult', result: result('20') })
   })
 })

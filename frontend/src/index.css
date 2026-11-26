@@ -1,1 +1,97 @@
 @import 'tailwindcss';
+
+/* The "Ledger" tokens from docs/frontend-design.md. Every text colour passes
+   4.5:1 on the surface it sits on. There is no dark theme in the design. */
+@theme {
+  --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --color-ground: #f6f5f1;
+  --color-surface: #ffffff;
+  --color-ink: #16181d;
+  --color-muted: #5b606b;
+  --color-dimmed: #6b717c;
+  --color-hairline: #e2e0d9;
+  --color-function-key: #eceae4;
+  --color-function-key-border: #dddad2;
+  --color-accent: #1f4fd1;
+  --color-operator-key: #e8eefc;
+  --color-operator-key-border: #d3ddf7;
+  --color-rounded: #7a4f00;
+  --color-rounded-bg: #fff4da;
+  --color-error: #b42318;
+  --color-error-border: #f1c9c4;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: var(--color-ground);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* The 2 px accent focus ring, offset 2 px. */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+}
+
+/* A value too long for the card fades out at the edge where digits are
+   hidden. The data attributes come from Base UI's ScrollArea viewport. */
+.value-viewport[data-overflow-x-end] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+}
+.value-viewport[data-overflow-x-start] {
+  mask-image: linear-gradient(to left, #000 calc(100% - 40px), transparent);
+}
+.value-viewport[data-overflow-x-start][data-overflow-x-end] {
+  mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+}
+
+/* While a request is in flight the previous value dims, and the footer shows
+   "Calculating…". Both wait 300 ms, so a fast answer doesn't flicker. */
+.value-dimmed {
+  color: var(--color-dimmed);
+  transition: color 150ms ease-out 300ms;
+}
+
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+}
+.appear-late {
+  animation: appear 150ms ease-out 300ms both;
+}
+
+@keyframes pulse-dot {
+  50% {
+    opacity: 0.25;
+  }
+}
+.calculating-dot {
+  animation: pulse-dot 900ms ease-in-out infinite;
+}
+.calculating-dot:nth-child(2) {
+  animation-delay: 150ms;
+}
+.calculating-dot:nth-child(3) {
+  animation-delay: 300ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .value-dimmed {
+    transition: none;
+  }
+  .calculating-dot {
+    animation: none;
+  }
+}

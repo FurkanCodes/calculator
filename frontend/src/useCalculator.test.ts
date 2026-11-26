@@ -57,7 +57,7 @@ describe('useCalculator', () => {
 
     calls[0]?.answer(200, { result: '5', exact: true })
     await waitFor(() => {
-      expect(result.current.state).toEqual({ status: 'ShowingResult', result: { origin: 'result', text: '5', exact: true } })
+      expect(result.current.state).toMatchObject({ status: 'ShowingResult', result: { origin: 'result', text: '5', exact: true } })
     })
   })
 
@@ -81,7 +81,7 @@ describe('useCalculator', () => {
     calls[0]?.answer(422, { error: { code: 'DIVISION_BY_ZERO', message: 'Cannot divide by zero.' } })
 
     await waitFor(() => {
-      expect(result.current.state).toEqual({
+      expect(result.current.state).toMatchObject({
         status: 'Error',
         failure: { kind: 'error', code: 'DIVISION_BY_ZERO', message: 'Cannot divide by zero.' },
       })
@@ -118,7 +118,7 @@ describe('useCalculator', () => {
 
     calls[1]?.answer(200, { result: '5', exact: true })
     await waitFor(() => {
-      expect(result.current.state).toEqual({ status: 'ShowingResult', result: { origin: 'result', text: '5', exact: true } })
+      expect(result.current.state).toMatchObject({ status: 'ShowingResult', result: { origin: 'result', text: '5', exact: true } })
     })
   })
 
