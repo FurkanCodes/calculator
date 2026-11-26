@@ -329,3 +329,5 @@ Also under entry 30: after its ten review fixes, checked `feature/frontend-ui` a
 > yes, but also please give us backend API ui as well, use openapi.
 
 Outcome: Sent the web container review's fixes to its agent: a narrower README error claim, one request-ID header, a CSP without `'unsafe-inline'`, shorter proxy timeouts, and the dockerignore moved next to its Dockerfile. Started an OpenAPI agent: a hand-written OpenAPI 3.1 `openapi.json` embedded in the backend and served at `/api/v1/openapi.json`, with contract tests that tie it to the operation and status tables, and then a self-hosted Swagger UI at `/docs/` in the web container.
+
+Also under entry 31: checked `feature/web-container` after its review fixes and merged it into `main`. The checks: the CSP has no `'unsafe-inline'`, there is exactly one `X-Request-ID` per response, `/api` gives the JSON 404, assets are gzipped, and both test suites pass on `main`. One review suggestion turned out wrong: the `=503` in `error_page` is needed, or the client gets a 502.

@@ -1,12 +1,41 @@
 services:
+  web:
+    # The repository root is the context because the frontend's type check
+    # reads testdata/numbers.json (see frontend/Dockerfile and its
+    # Dockerfile.dockerignore).
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    # The only published port. Bound to localhost, so the app is reachable from
+    # this machine and not from the network; use "8080:8080" to open it up.
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      calculator:
+        condition: service_healthy
+    healthcheck:
+      # nginx's own /healthz; it does not depend on the calculator.
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    # nginx stops on SIGQUIT and finishes in-flight requests. Its proxy
+    # timeouts (2 s to connect, 5 s to answer) keep those within this window.
+    stop_grace_period: 10s
+    restart: unless-stopped
+    read_only: true
+    # nginx's pid file and temp directories, the only paths it writes.
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
   calculator:
     build: ./backend
     environment:
       PORT: "8081"
-    # Temporary: published on localhost only, until the web container exists.
-    # After that, nginx is the only way in and this mapping is removed.
-    ports:
-      - "127.0.0.1:8081:8081"
+    # No ports: only the web container reaches it, over the Compose network.
     healthcheck:
       # The image has no shell or curl, so the binary checks itself.
       test: ["CMD", "/calculator", "-healthcheck"]

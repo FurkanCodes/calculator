@@ -1,6 +1,11 @@
 import { z } from 'zod'
 import { numberSchema } from './number'
 
+// Zod 4 probes for `new Function` support when the first object schema is
+// built, which the page's CSP (script-src 'self') blocks and the browser
+// reports. This must run before any z.object() call below.
+z.config({ jitless: true })
+
 /** Relative, because nginx serves the page and the API from one origin. */
 export const CALCULATE_URL = '/api/v1/calculate'
 

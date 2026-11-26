@@ -36,7 +36,7 @@ var numberPattern = regexp.MustCompile(NumberPattern)
 func parseOperand(position int, s string) (decimal.Decimal, error) {
 	if len(s) > MaxLength {
 		return decimal.Decimal{}, newError(InputTooLarge,
-			"Operand %d is longer than %d characters.", position, MaxLength)
+			"Operand %d is longer than %d bytes.", position, MaxLength)
 	}
 	if !numberPattern.MatchString(s) {
 		return decimal.Decimal{}, newError(InvalidNumber,
