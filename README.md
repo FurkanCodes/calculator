@@ -2,7 +2,7 @@
 
 A React + TypeScript calculator backed by a Go service that does exact decimal arithmetic. `0.1 + 0.2` is `0.3`, and a result that had to be rounded, such as `1 ÷ 3`, is marked as rounded.
 
-<img src="docs/screenshot.png" width="320" alt="The calculator on a phone-sized screen showing 1 ÷ 3 = 0.3333… with a &quot;Rounded to 34 digits&quot; marker and a Copy button above the keypad.">
+<img src="docs/screenshot.png" width="320" alt="The calculator on a phone-sized screen showing 1 ÷ 3 = 0.3333… with a &quot;Rounded to 34 digits&quot; marker and a Copy button above the keypad, and the start of the About section with links to the API docs below it.">
 
 ## Quick Start
 
