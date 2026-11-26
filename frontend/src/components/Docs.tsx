@@ -113,7 +113,7 @@ export function Docs() {
           Ten ground rules came first, each backed by a test or a lint check, such as “no floats where numbers pass
           through”. Then the operations, tested against Python’s <Code>decimal</Code> module and fuzzed against Go’s{' '}
           <Code>math/big</Code>; then the HTTP API, this interface, Docker and CI; and last the OpenAPI description, with
-          contract tests that fail when it and the code disagree. It was built with Claude Code; selected prompts are in{' '}
+          contract tests that fail when it and the code disagree. It was built with Claude Code, and every prompt is in{' '}
           <NewTabLink href={`${REPO}/blob/main/PROMPTS.md`}>PROMPTS.md</NewTabLink>
           .
         </p>

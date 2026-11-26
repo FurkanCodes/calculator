@@ -141,4 +141,4 @@ Backend expected values come from Python's `decimal` module (`backend/internal/c
 
 ## AI Usage
 
-Built with Claude Code; I read, reviewed and tested the code. Selected prompts are in [PROMPTS.md](PROMPTS.md).
+Built with Claude Code; I read, reviewed and tested the code. The prompts are in [PROMPTS.md](PROMPTS.md), with a short summary first.
