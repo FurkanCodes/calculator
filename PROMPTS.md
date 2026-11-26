@@ -1,15 +1,35 @@
-# AI prompts and decisions
+# Selected AI prompts
 
-I used Claude Code for design discussion, implementation, and review. The entries below are **paraphrases grouped by topic**. Routine approvals, merge instructions, and repeated follow-ups are condensed. The [original conversation prompts and outcome notes](https://github.com/FurkanCodes/calculator/blob/4fb65f623494e51a0f9a6cf58961059a5e3b3ffb/PROMPTS.md) preserve the wording recorded during development.
+These are selected prompts from the development log, in their original wording and order. The headings describe the context. The [full log](https://github.com/FurkanCodes/calculator/blob/4fb65f623494e51a0f9a6cf58961059a5e3b3ffb/PROMPTS.md) includes the surrounding discussion and outcome notes.
 
-| Topic | What I asked | Decision or outcome |
-| --- | --- | --- |
-| Scope | Which parts of the microservice design fit the assignment? Would a gateway and API keys be worthwhile? | Ship one stateless Go service and a React client. Describe the AWS option separately. |
-| Arithmetic | How should a general calculator handle decimal values? Compare shopspring/decimal with alternatives and consider whether monetary minor units fit. | Pass operands as decimal strings. Round once to 34 significant digits using half-even rounding and report whether the result was exact. |
-| API | Review a versioned calculate endpoint, a health check, graceful shutdown, and a consistent error response. | Go owns validation and arithmetic. Each API error carries a stable code and message. |
-| Deployment | Why keep nginx? How do the frontend and backend ports relate? Can proxy failures use the API error format? | nginx serves React and forwards API requests. Only its port is published. The calculator listens on the internal network. |
-| Interaction | Compare UI directions. Define how percentage, sign changes, long results, and unknown error codes should behave. | Choose the Ledger design. For example, in `50 + 10 %`, the percentage replaces the second operand with `5`, so pressing equals returns `55`. |
-| Verification | Review the calculation and API changes, fix the findings, and check delivery against the brief. | Add shared validation fixtures, independent arithmetic references, OpenAPI examples checked against the handler, and a Compose smoke test. |
-| Documentation | Keep setup and API examples easy to find. Explain the main design decisions and report measured coverage. | Put the quick start in the README and move detailed architecture, frontend behavior, and the AWS proposal into dedicated documents. |
+## Choosing a decimal library
 
-Claude Code used EGM brainstorming during design, the thermo-nuclear code quality review skill during implementation, and readme-optimization during editing. Larger implementation tasks ran on separate branches. Codex helped review the submission and edit this summary.
+> I would choose shopspring/decimal for general financial apps and web APIs because its immutable API is much easier and safer to use, while cockroachdb/apd is the better pick for high-performance, high-precision calculations where memory allocations and strict rounding rules matter. I think we should stick with shopspring right now because we do not have to worry about performance or precision calculation, right?
+
+## Starting the backend with Docker Compose
+
+> First, set up the docker properly so when I run docker compose up -d it should start the backend.
+
+## Reviewing code quality
+
+> Run the code quality review and report back
+
+## Tracking deliverables
+
+> Create stories.md and write down everything we are suppose to implement and tick them one by one.
+
+## Changing the sign of a displayed result
+
+> yes fix them, negate the shown result
+
+## Making the API explorable
+
+> yes, but also please give us backend API ui as well, use openapi.
+
+## Reconsidering scope
+
+> I feel like we are starting to over-engineer this.
+
+## Preparing the submission
+
+> public, trim read me, do not do a lot of words, stick with simple yet effective readme. keep aws in product design.
