@@ -56,7 +56,7 @@ export function Docs() {
           </li>
           <li>
             Keyboard: digits, <Kbd>.</Kbd> <Kbd>+</Kbd> <Kbd>-</Kbd> <Kbd>*</Kbd> <Kbd>/</Kbd> <Kbd>^</Kbd>{' '}
-            <Kbd>%</Kbd>, then <Kbd>Enter</Kbd> or <Kbd>=</Kbd>. <Kbd>Esc</Kbd> clears.
+            <Kbd>%</Kbd>, then <Kbd>Enter</Kbd> or <Kbd>=</Kbd>. <Kbd>Esc</Kbd> or <Kbd>Delete</Kbd> clears.
           </li>
         </ul>
       </Section>
@@ -66,7 +66,8 @@ export function Docs() {
           The page is a React app. Each key goes through a small state machine, and when an answer is needed it sends
           one request:
         </p>
-        <pre className="mt-3 overflow-x-auto rounded-[10px] border border-hairline bg-surface p-4 font-mono text-[13px] leading-relaxed">
+        {/* Focusable, so the keyboard can scroll it sideways on a phone. */}
+        <pre tabIndex={0} aria-label="Example request and response" className="focus-ring mt-3 overflow-x-auto rounded-[10px] border border-hairline bg-surface p-4 font-mono text-[13px] leading-relaxed">
           {`POST /api/v1/calculate
 {"operation": "divide", "operands": ["1", "3"]}
 
@@ -113,9 +114,7 @@ export function Docs() {
           through”. Then the operations, tested against Python’s <Code>decimal</Code> module and fuzzed against Go’s{' '}
           <Code>math/big</Code>; then the HTTP API, this interface, Docker and CI; and last the OpenAPI description, with
           contract tests that fail when it and the code disagree. It was built with Claude Code, and every prompt is in{' '}
-          <a className="link" href={`${REPO}/blob/main/PROMPTS.md`}>
-            PROMPTS.md
-          </a>
+          <NewTabLink href={`${REPO}/blob/main/PROMPTS.md`}>PROMPTS.md</NewTabLink>
           .
         </p>
       </Section>
