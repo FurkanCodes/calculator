@@ -1,6 +1,6 @@
 # Selected AI prompts
 
-These are selected prompts from the development log, in their original wording and order. The headings describe the context. The [full log](https://github.com/FurkanCodes/calculator/blob/4fb65f623494e51a0f9a6cf58961059a5e3b3ffb/PROMPTS.md) includes the surrounding discussion and outcome notes.
+These are selected prompts from the development log, in their original wording and order. The headings describe the context.
 
 ## Choosing a decimal library
 
@@ -33,3 +33,7 @@ These are selected prompts from the development log, in their original wording a
 ## Preparing the submission
 
 > public, trim read me, do not do a lot of words, stick with simple yet effective readme. keep aws in product design.
+
+## Design note on nginx
+
+We kept the React build and the Go API in separate containers. nginx serves the app on port 8080 and forwards requests under `/api/` to Go on port 8081 inside the Compose network. This gives the browser one origin and lets the frontend call a relative API URL. [Architecture diagram](README.md#architecture)
