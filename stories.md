@@ -33,7 +33,7 @@ Everything this project is meant to deliver, in build order. An item is ticked o
 - [x] `cmd/calculator`: `PORT`, server timeouts, graceful shutdown, `-healthcheck` flag
 - [x] `backend/Dockerfile`: multi-stage, distroless, non-root, exec-form `ENTRYPOINT` **(brief)**
 - [x] `docker-compose.yml`: health check, stop grace period, read-only and no capabilities **(brief)**
-- [ ] Remove the temporary `127.0.0.1:8081` port mapping once the web container exists
+- [x] Remove the temporary `127.0.0.1:8081` port mapping once the web container exists
 
 ## 5. Code quality and merge
 
@@ -74,8 +74,8 @@ Everything this project is meant to deliver, in build order. An item is ticked o
 
 ## 7. Web container
 
-- [ ] `frontend/nginx.conf`: serves the build, falls back to `index.html`, forwards `/api/*`, returns its own errors in the JSON format
-- [ ] `frontend/Dockerfile`, plus the `web` service in `docker-compose.yml`, so one `docker compose up` runs the full stack **(brief)**
+- [x] `frontend/nginx.conf`: serves the build, falls back to `index.html`, forwards `/api/*`, returns its own errors in the JSON format
+- [x] `frontend/Dockerfile`, plus the `web` service in `docker-compose.yml`, so one `docker compose up` runs the full stack **(brief)**
 
 ## 8. CI
 
