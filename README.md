@@ -3,14 +3,13 @@ Before submitting:
 - add an application screenshot with alt text (the frontend is built; only the screenshot is left)
 - run every command below from a clean checkout and fix anything that differs
 - re-measure coverage and update the table in "Testing and Coverage"
-- remove the temporary 127.0.0.1:8081 port mapping from docker-compose.yml once the web container exists
 -->
 
 # Calculator
 
 A calculator with a Go backend that does exact decimal arithmetic. `0.1 + 0.2` returns `0.3`, and when a result has to be rounded, such as `1 ÷ 3`, the response says so.
 
-The Go backend is built and tested, with all seven operations, and so is the React frontend: a keypad that also works from the keyboard, a display that marks rounded results, and error text for each failure. Not built yet: the nginx container that will serve the frontend ([design](docs/frontend-design.md)), and CI. The brief for this take-home allows 2–4 hours, so it favours a small, well-tested core over extra features.
+The Go backend is built and tested, with all seven operations, and so is the React frontend: a keypad that also works from the keyboard, a display that marks rounded results, and error text for each failure. So is the web container: nginx serves the frontend and forwards API calls to the backend. Not built yet: CI. The brief for this take-home allows 2–4 hours, so it favours a small, well-tested core over extra features.
 
 <!-- Application screenshot goes here: still to take, at the submission step. -->
 
@@ -20,7 +19,12 @@ Requires Docker with Compose v2.
 
 ```sh
 docker compose up -d --build
-curl -s http://127.0.0.1:8081/api/v1/calculate \
+```
+
+Then open <http://localhost:8080>. The same port serves the API:
+
+```sh
+curl -s http://localhost:8080/api/v1/calculate \
   -H 'Content-Type: application/json' \
   -d '{"operation": "add", "operands": ["0.1", "0.2"]}'
 ```
@@ -29,7 +33,7 @@ curl -s http://127.0.0.1:8081/api/v1/calculate \
 {"result":"0.3","exact":true}
 ```
 
-Until the web container exists, the backend is published on `127.0.0.1:8081`, and the frontend runs with its dev server (below). After that, nginx will serve the app on port 8080 and be the only way in.
+Port 8080 is published on `127.0.0.1` only, so the app is reachable from this machine and not from the network. The calculator service has no published port; nginx is the only way in. `docker compose down` stops both containers. To work on the frontend with hot reload, use its dev server instead (below).
 
 ## Local Development
 
@@ -80,7 +84,7 @@ Success, `200`:
 {"result": "0.3333333333333333333333333333333333", "exact": false}
 ```
 
-`exact` is `false` when the result was rounded. Every response has an `X-Request-Id` header, and the same ID appears in the service's log line for that request.
+`exact` is `false` when the result was rounded. Every response has one `X-Request-ID` header, and the same ID appears in nginx's access log line and the service's log line for that request. A request that sends its own `X-Request-ID` (1 to 64 letters, digits and hyphens) keeps it; any other value is replaced.
 
 The body must be one JSON object with exactly two keys, `operation` and `operands`, each appearing once and matched case-sensitively. Operands and results are JSON strings. A valid number:
 
@@ -96,28 +100,29 @@ Every error has the same shape. Clients should act on `code`; `message` is for p
 | 400    | `INVALID_REQUEST` (malformed body), `INVALID_NUMBER`, `WRONG_OPERAND_COUNT`, `UNSUPPORTED_OPERATION` |
 | 404    | `NOT_FOUND`, also for a path that is not in clean form, such as `/api/v1//calculate`                |
 | 405    | `METHOD_NOT_ALLOWED`, with an `Allow` header listing the methods the path accepts                   |
-| 413    | `INPUT_TOO_LARGE`: a body over 4 KiB, or an operand over the length or digit limit                  |
+| 413    | `INPUT_TOO_LARGE`: a body over 4 KiB, or an operand over the length or digit limit. nginx sends it too, for a body over 16 KiB, which never reaches the service |
 | 422    | `DIVISION_BY_ZERO`, `NEGATIVE_SQUARE_ROOT`, `INVALID_EXPONENT`, `OUT_OF_RANGE`                      |
 | 500    | `INTERNAL_ERROR`: a bug, logged with the request ID                                                 |
+| 503    | `SERVICE_UNAVAILABLE`: sent only by nginx, when the service is down or does not answer in time       |
 
 ```sh
-curl -s -i http://127.0.0.1:8081/api/v1/calculate \
+curl -s -i http://localhost:8080/api/v1/calculate \
   -H 'Content-Type: application/json' \
   -d '{"operation": "divide", "operands": ["10", "0"]}'
 ```
 
-Response (`Date` and `Content-Length` headers left out):
+Response (`Server`, `Date`, `Content-Length`, `Connection` and the security headers nginx adds left out):
 
 ```
 HTTP/1.1 422 Unprocessable Entity
 Content-Type: application/json
-X-Request-Id: 3f0c9a6e2b7d4c1e
+X-Request-ID: 3f0c9a6e2b7d4c1e8a5f0b9d2c7e4a61
 
 {"error":{"code":"DIVISION_BY_ZERO","message":"Cannot divide by zero."}}
 ```
 
 ```sh
-curl -s http://127.0.0.1:8081/api/v1/calculate \
+curl -s http://localhost:8080/api/v1/calculate \
   -H 'Content-Type: application/json' \
   -d '{"operation": "add", "operands": [0.1, 0.2]}'
 ```
@@ -129,7 +134,7 @@ curl -s http://127.0.0.1:8081/api/v1/calculate \
 `sqrt` takes a single operand:
 
 ```sh
-curl -s http://127.0.0.1:8081/api/v1/calculate \
+curl -s http://localhost:8080/api/v1/calculate \
   -H 'Content-Type: application/json' \
   -d '{"operation": "sqrt", "operands": ["2"]}'
 ```
@@ -139,7 +144,7 @@ curl -s http://127.0.0.1:8081/api/v1/calculate \
 ```
 
 ```sh
-curl -s http://127.0.0.1:8081/api/v1/calculate \
+curl -s http://localhost:8080/api/v1/calculate \
   -H 'Content-Type: application/json' \
   -d '{"operation": "power", "operands": ["2", "0.5"]}'
 ```
@@ -150,7 +155,7 @@ curl -s http://127.0.0.1:8081/api/v1/calculate \
 
 ### `GET /healthz`
 
-Returns `200 {"status":"ok"}` while the process is running. It is not logged.
+Returns `200 {"status":"ok"}` while the process is running. It is not logged. The service's `/healthz` is for its own container's health check and is not published; `http://localhost:8080/healthz` is nginx's, which answers the same way without calling the service.
 
 ### `GET /api/v1/openapi.json`
 
@@ -181,9 +186,30 @@ The document was also checked once with Redocly CLI 2.77.0 (`redocly lint`, reco
 
 ## Architecture
 
+Docker Compose runs two containers:
+
+```mermaid
+flowchart LR
+    browser(["Browser"])
+    subgraph compose["docker compose"]
+        subgraph web["web: nginx, port 8080"]
+            static["Built frontend<br/>index.html, /assets/*"]
+            proxy["/api/* forwarded,<br/>path unchanged"]
+        end
+        calc["calculator: Go service, port 8081<br/>not published"]
+    end
+    browser -->|"localhost:8080"| static
+    browser -->|"localhost:8080/api/v1/calculate"| proxy --> calc
+```
+
+- **`web`** (`frontend/Dockerfile`, `frontend/nginx.conf`) runs nginx. It serves the built React app and forwards every `/api/*` request to the calculator with its path unchanged. It is the only container with a published port. It starts once the calculator reports healthy.
+- **`calculator`** (`backend/Dockerfile`) is the Go service. It is reachable only from inside the Compose network.
+
+Inside the calculator service:
+
 ```mermaid
 flowchart TB
-    client(["Client"])
+    client(["nginx, in the web container"])
     subgraph service["calculator service: one Go binary, own container"]
         subgraph transport["internal/httpapi: transport"]
             rid["Request ID"]
@@ -208,7 +234,6 @@ The service is one Go binary with two packages, and depends only on the standard
 - **`internal/httpapi`** is the transport. It routes, decodes JSON, checks the request's shape, maps error codes to statuses and writes the logs. Handlers return their error instead of writing it, so one wrapper produces every error response and log line. The package never imports the decimal library, and a test checks that.
 - **`internal/calc`** is the calculator. It looks the operation up in a table, checks the operands against the number rules, runs the operation and applies the precision policy. It is pure: no I/O, no logging and no state.
 
-The service runs in its own container (`backend/Dockerfile`). A planned nginx container will serve the frontend and forward `/api/*` to it ([frontend design](docs/frontend-design.md)).
 
 ## Design Decisions
 
@@ -251,6 +276,22 @@ On SIGTERM, the server stops accepting connections and lets in-flight requests f
 
 One table maps each error code to its HTTP status. A test type-checks `calc` and fails if any constant of type `Code` is missing from the table. Errors caused by the request are logged at info level with their code, because a user dividing by zero is the service working correctly. Only a 500 is logged at error level, together with its cause.
 
+### Serving through nginx
+
+The browser talks to one origin, `localhost:8080`. nginx serves the built app there and forwards `/api/*` to the calculator, so the client calls a relative URL and the service needs no CORS headers and no published port. The Vite dev server does the same forwarding in development, so the client code is identical in both.
+
+nginx here is a static file server and a reverse proxy, not an API gateway. It does no authentication, rate limiting, request rewriting or routing between services; the service validates every request itself. A gateway with API keys and rate limits is part of the [production design](docs/production-design.md), not built.
+
+- **Errors in one format.** The errors nginx makes for API calls use the service's error JSON, with `Content-Type: application/json`: its 502 (no address for the service, or a refused connection), 504 (no connection or no answer in time) and 503 all become `503 SERVICE_UNAVAILABLE`, and its 413 becomes `INPUT_TOO_LARGE`. `/api` without a slash gets the JSON `NOT_FOUND` instead of nginx's redirect to `/api/`. nginx does not intercept the service's own responses, so the service's 400, 404, 405, 413, 422 and 500 bodies pass through untouched. Malformed HTTP that nginx rejects before routing, such as an oversized header (400) or URI (414), still gets nginx's default HTML page.
+- **Body limit.** The service's 4 KiB limit is the one that applies. nginx's limit is 16 KiB, a backstop that stops a large body before it is forwarded. A 10 KB body therefore gets the service's `INPUT_TOO_LARGE`, and a 20 KB body gets nginx's.
+- **Finding the service.** nginx looks the calculator's address up through Docker's DNS at run time (every 5 seconds) instead of once at start, so it starts before the calculator is resolvable and finds a restarted container with a new address. After a restart, requests succeed again within about 5 seconds.
+- **Request IDs.** nginx forwards a well-formed incoming `X-Request-ID` (the same pattern the service accepts), or makes one of 32 hex characters, and logs it. The service keeps it, so one ID ties the two log lines together. nginx hides the service's copy of the header and adds its own to every response, including static files and its own errors, so there is always exactly one.
+- **Caching and compression.** Files under `/assets/` have content hashes in their names, so they are cached for a year (`immutable`). `index.html` is `no-cache`, so a new build is picked up on the next load. A missing asset is a 404, never `index.html`; every other path falls back to `index.html` for the single-page app. Only the build is served, not the base image's sample pages. JavaScript, CSS, JSON, SVG and HTML over 1 KB are sent gzip-compressed.
+- **Security headers.** `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY` and a Content Security Policy: scripts, styles, images and API calls from this origin only, with nothing inline, and fonts from Google Fonts (`fonts.googleapis.com` for the stylesheet, `fonts.gstatic.com` for the files). Base UI's scroll area would add a small inline `<style>` element to hide its native scrollbar, so `main.tsx` turns that off with Base UI's `CSPProvider` (`disableStyleElements`), and `index.css` has the same two rules. `server_tokens off` hides the nginx version.
+- **Build context.** The image is built from the repository root, not `frontend/`, because `npm run build` type-checks the tests too, and one of them imports `testdata/numbers.json`. Building with `vite build` alone would skip the type check, so the image could be built from code that fails it. `frontend/Dockerfile.dockerignore`, which BuildKit applies to that Dockerfile only, is an allowlist: only `frontend/` (without `node_modules`, `dist`, `coverage` and `.env*` files) and that one JSON file are sent.
+- **Container.** The runtime image is `nginxinc/nginx-unprivileged`: it runs as a non-root user on port 8080. The container is read-only with a tmpfs on `/tmp` for nginx's pid and temp files, drops every capability and sets `no-new-privileges`, like the calculator's. nginx is started directly in exec form as PID 1, skipping the base image's entrypoint scripts, which adjust the config at start; without them, the config that runs is exactly `nginx.conf`. It stops on `SIGQUIT`, nginx's graceful shutdown, which finishes in-flight requests. Its proxy timeouts (2 seconds to connect, 5 to answer) keep any request it is waiting on within the 10-second stop grace period.
+- **Port binding.** Port 8080 is published on `127.0.0.1` only. The app is for the person running it, so nothing is exposed to the local network; change the mapping to `"8080:8080"` to open it.
+
 ### Frontend state management
 
 The calculator's state is a `useReducer` with a pure reducer (`frontend/src/calculator.ts`), tested without rendering. There is one screen and nothing shared between components, so there is no Redux.
@@ -287,7 +328,7 @@ The reducer does no arithmetic and no fetching. Entering `Calculating` is the re
 
 ### Frontend API client
 
-`frontend/src/api.ts` calls `POST /api/v1/calculate` with native `fetch` and a relative URL, because nginx will serve the page and the API from one origin. In development, Vite forwards `/api` to the backend on port 8081. Zod checks every response, and a result must itself be a valid operand. `calculate()` never throws; it returns one of:
+`frontend/src/api.ts` calls `POST /api/v1/calculate` with native `fetch` and a relative URL, because nginx serves the page and the API from one origin. In development, Vite forwards `/api` to the backend on port 8081. Zod checks every response, and a result must itself be a valid operand. `calculate()` never throws; it returns one of:
 
 - `success`, with `result` and `exact`
 - `error`, with the API's error code and its message. The code is `null` when this client doesn't know it, for example a code added to a newer backend; the message is still shown.

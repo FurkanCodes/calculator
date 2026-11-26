@@ -44,6 +44,16 @@
   }
 }
 
+/* Base UI's ScrollArea hides the native scrollbar with these rules, normally in
+   a <style> element it adds itself. main.tsx turns that element off, because
+   nginx's Content Security Policy blocks inline styles, so they live here. */
+.base-ui-disable-scrollbar {
+  scrollbar-width: none;
+}
+.base-ui-disable-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* A value too long for the card fades out at the edge where digits are
    hidden. The data attributes come from Base UI's ScrollArea viewport. */
 .value-viewport[data-overflow-x-end] {
