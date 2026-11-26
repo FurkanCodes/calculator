@@ -37,7 +37,7 @@ stateDiagram-v2
 - Digits, the decimal point and the sign key keep you in the current entry state.
 - On a result, a digit or the decimal point starts a new number, and the sign key negates the result and keeps its rounded marker.
 - Clear returns to `EnteringFirst` from any state, and cancels a request in flight.
-- In `Calculating`, every other key is ignored. When the request was started by an operator rather than `=`, the result becomes the first number with that operator already chosen.
+- In `Calculating`, every other key waits for the answer, then applies in order, so `2 + 3 × 4 =` gives `20` however fast it is typed. If the request fails, the waiting keys are dropped and the error stays. When the request was started by an operator rather than `=`, the result becomes the first number with that operator already chosen.
 
 The state lives in the calculator component as a `useReducer` with a pure reducer, tested without rendering. There is one screen and nothing shared between components, so there is no Redux.
 
@@ -52,7 +52,7 @@ The state lives in the calculator component as a `useReducer` with a pure reduce
 
 The web container runs nginx, which serves the React build and forwards `/api/*` to the calculator. The page and the API then share one origin, so there is no CORS setup and the calculator needs no public port. nginx is not an API gateway: it does no authentication or rate limiting.
 
-nginx's own errors use the service's JSON format: its 502, 503 and 504 responses become `SERVICE_UNAVAILABLE` (503), and its 413 becomes `INPUT_TOO_LARGE`. Malformed HTTP that nginx rejects before routing, such as an oversized header or URI, gets nginx's default HTML page. A CI smoke test will stop the calculator and expect the JSON 503.
+nginx's own errors use the service's JSON format: its 502, 503 and 504 responses become `SERVICE_UNAVAILABLE` (503), and its 413 becomes `INPUT_TOO_LARGE`. Malformed HTTP that nginx rejects before routing, such as an oversized header or URI, gets nginx's default HTML page. A CI smoke test (`scripts/smoke.sh`) stops the calculator and expects the JSON 503.
 
 ## Visual design: "Ledger"
 
@@ -97,7 +97,7 @@ C   √   xʸ  %
 The keyboard maps digits, `.`, `+ - * /`, `^`, `%`, `Enter` and `=` (equals), and `Escape` or `Delete` (clear). There is no Backspace: the reducer has no action that deletes one character, and Clear covers mistakes on a calculator this simple. The focus ring is 2 px in `accent`, offset 2 px.
 
 **States** (from the states sheet):
-- Calculating: the previous value in `dimmed`, three dots and "Calculating…" in the footer, `aria-busy` on the card. The dimming and the footer wait 300 ms, so a fast answer doesn't flicker. Keys stay enabled but are ignored (the reducer's rule), except `C`.
+- Calculating: the previous value in `dimmed`, three dots and "Calculating…" in the footer, `aria-busy` on the card. The dimming and the footer wait 300 ms, so a fast answer doesn't flicker. Keys stay enabled: they wait for the answer and then apply, except `C`, which cancels.
 - Error: an icon and the message in `error` in place of the value, and "Type a number to start again." in the footer. The text is chosen by error code. For a code the client doesn't know, the backend's message is shown.
 - Unreachable: a no-connection icon, "Can't reach the calculator.", and "Check your connection, then try again." There is no retry button, because the reducer leaves Error only on a digit or Clear. nginx's `SERVICE_UNAVAILABLE` also shows this state, because it means the calculator is down.
 - Invalid response (an answer that breaks the API's contract, the client's `invalidResponse`): styled like Error, with "Something went wrong." and "Try again, or press C to start over." in the footer.
