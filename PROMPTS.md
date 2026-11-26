@@ -295,3 +295,9 @@ Outcome: With no design system and the "precise instrument" direction (both chos
 > lets do A
 
 Outcome: Chose "Ledger" as the visual design. Wrote its spec into `docs/frontend-design.md`: type, colour tokens with contrast checked, layout, keypad, keyboard map and display states. Fixed the dimmed "calculating" colour, which failed contrast in the draft. Closed the last open decision in `CLAUDE.md`.
+
+### 27
+
+> yes fix them, negate the shown result
+
+Outcome: Sent all ten findings from the frontend-core review to the frontend agent. The main ones: the `%` result could be edited by typing; answers were not tied to their request; the no-arithmetic lint check had gaps; broken responses were reported as "unreachable". Decision recorded: the sign key negates a shown result and keeps its rounded flag. Told the UI agent about the coming API changes (`press` in place of `dispatch`, an `invalidResponse` outcome).
