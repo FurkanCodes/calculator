@@ -1,6 +1,6 @@
 # Frontend design
 
-**Status: built.** The number checks, the API client, the state machine and the interface below are built and tested in `frontend/src` (see the README), and the nginx web container serves them (`frontend/Dockerfile`, `frontend/nginx.conf`).
+**Status: built.** The number checks, the API client, the state machine and the interface below are built and tested in `frontend/src` (see [design.md](design.md)), and the nginx web container serves them (`frontend/Dockerfile`, `frontend/nginx.conf`).
 
 ## Behaviour
 
