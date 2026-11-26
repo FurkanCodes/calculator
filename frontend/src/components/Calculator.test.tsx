@@ -228,6 +228,16 @@ describe('the keyboard', () => {
     expect(sentBody(fetchMock)).toBe(`{"operation":"${operation}","operands":["8","2"]}`)
   })
 
+  it('takes a negative exponent typed as ^ then -', async () => {
+    const fetchMock = answer(200, { result: '0.125', exact: true })
+    render(<Calculator />)
+    type('2', '^', '-', '3', '=')
+    await waitFor(() => {
+      expect(value()).toBe('0.125')
+    })
+    expect(sentBody(fetchMock)).toBe('{"operation":"power","operands":["2","-3"]}')
+  })
+
   it('clears with Delete, and has no Backspace', () => {
     render(<Calculator />)
     type('4', '2', 'Backspace')

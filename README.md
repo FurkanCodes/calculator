@@ -130,7 +130,7 @@ More detail: [docs/design.md](docs/design.md). How this would run on AWS (not bu
 | ----------------------- | --------------------- |
 | Backend (`calc`, `httpapi`) | 100%              |
 | Backend total           | 97.3%                 |
-| Frontend (280 tests)    | 99.6%                 |
+| Frontend (283 tests)    | 99.6%                 |
 
 Backend expected values come from Python's `decimal` module (`backend/internal/calc/testdata/reference.py`), and fuzz tests compare results with `math/big`. CI (`.github/workflows/ci.yml`) runs both suites, uploads both coverage reports, and runs a Compose smoke test (`scripts/smoke.sh`).
 

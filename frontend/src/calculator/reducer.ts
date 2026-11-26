@@ -121,6 +121,12 @@ function operatorChosen(state: Extract<State, { status: 'OperatorChosen' }>, act
     return { status: 'EnteringSecond', first, operator, second: applyEntryKey(ZERO, action) }
   }
   if (action.type === 'operator') {
+    // After xʸ, − starts a negative exponent, so 2 ^ − 3 is 2 to the power −3
+    // the way people type it. It gives -0, like ± on 0, and a digit replaces the 0.
+    if (state.operator === 'power' && action.operator === 'subtract') {
+      const { first, operator } = state
+      return { status: 'EnteringSecond', first, operator, second: applyEntryKey(ZERO, { type: 'toggleSign' }) }
+    }
     // Another operator replaces the first.
     return { ...state, operator: action.operator }
   }

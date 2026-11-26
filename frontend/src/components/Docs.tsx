@@ -6,12 +6,8 @@ export function Docs() {
       <h2 id="about-title" className="text-[22px] leading-tight font-semibold">
         About this calculator
       </h2>
-      <p className="mt-3">
-        A calculator with exact decimals: <Code>0.1 + 0.2</Code> is <Code>0.3</Code>. A result that had to be
-        rounded, such as <Code>1 ÷ 3</Code>, is marked as rounded.
-      </p>
 
-      <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-2">
+      <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
         <li>
           <NewTabLink href="/docs/">API docs (Swagger UI)</NewTabLink>
         </li>

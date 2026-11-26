@@ -299,6 +299,32 @@ describe('an answer outside Calculating', () => {
   )
 })
 
+describe('a negative exponent', () => {
+  const power: Action = { type: 'operator', operator: 'power' }
+  const subtract: Action = { type: 'operator', operator: 'subtract' }
+
+  it('starts when − follows xʸ, so 2 ^ − 3 sends power(2, -3)', () => {
+    expect(run(initialState, digit('2'), power, subtract)).toEqual({
+      status: 'EnteringSecond',
+      first: typed('2'),
+      operator: 'power',
+      second: typed('-0'),
+    })
+    expect(run(initialState, digit('2'), power, subtract, digit('3'), equals)).toMatchObject({
+      status: 'Calculating',
+      request: { operation: 'power', operands: ['2', '-3'] },
+    })
+  })
+
+  it('leaves − after any other operator as a correction', () => {
+    expect(run(initialState, digit('2'), multiply, subtract)).toEqual({
+      status: 'OperatorChosen',
+      first: typed('2'),
+      operator: 'subtract',
+    })
+  })
+})
+
 describe('entry keys on a typed number', () => {
   it('stay in EnteringFirst', () => {
     expect(run(initialState, ...type('-12.50'))).toEqual({ status: 'EnteringFirst', first: typed('-12.50') })

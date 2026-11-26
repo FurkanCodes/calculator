@@ -12,6 +12,7 @@
   - After `50 + 10`, `%` sends `percentage(10, 50)`, which is 10% of 50. The result `5` replaces the second number and the `+` stays, so a following `=` gives `55`.
   - With no operator chosen, `10 %` sends `percentage(10, 1)`, which is 10 ÷ 100 = `0.1`.
   - Right after an operator, before a second number is typed, `%` is ignored.
+- An operator key right after another replaces it, except `−` right after `xʸ`, which starts a negative exponent: `2 ^ − 3 =` gives `0.125`.
 - A long result (up to 34 significant digits, or up to 100 digits before the decimal point) shrinks the display text down to a minimum size, then scrolls horizontally. A copy button copies the full value.
 
 ## State
