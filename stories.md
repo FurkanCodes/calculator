@@ -89,3 +89,10 @@ Everything this project is meant to deliver, in build order. An item is ticked o
 - [ ] Run every README command from a clean checkout, re-measure coverage, and add a screenshot
 - [ ] `PROMPTS.md` complete **(brief)**
 - [ ] Make the repository public, or add the reviewers as collaborators **(brief)**
+
+## 10. API documentation
+
+- [x] Hand-written OpenAPI 3.1 description in `backend/internal/httpapi/openapi.json`, served at `GET /api/v1/openapi.json`
+- [x] Contract tests: operations, codes and statuses, number rules, routes, and every example sent through the real handler
+- [ ] Swagger UI at `/docs/`, self-hosted in the web container, with "Try it out" checked in a browser
+- [ ] How to view the docs in development

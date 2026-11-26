@@ -152,6 +152,33 @@ curl -s http://127.0.0.1:8081/api/v1/calculate \
 
 Returns `200 {"status":"ok"}` while the process is running. It is not logged.
 
+### `GET /api/v1/openapi.json`
+
+Returns the API's OpenAPI 3.1 description, described below. It is logged like any API request.
+
+### API documentation
+
+The API is described by a hand-written OpenAPI 3.1 document, [`backend/internal/httpapi/openapi.json`](backend/internal/httpapi/openapi.json). It is embedded in the binary and served by the service itself, so any OpenAPI tool can read it from a running instance:
+
+```sh
+curl -s http://127.0.0.1:8081/api/v1/openapi.json
+```
+
+It describes the request and response schemas, every error status with the codes it can carry, the `X-Request-ID` header, and examples for every operation and for most errors. It also lists `503 SERVICE_UNAVAILABLE`, marked as sent only by nginx in the planned web container. Its `servers` entry is `/`, so a tool's "Try it out" calls the origin that served the document.
+
+It is JSON, not YAML, because the standard library reads JSON and the backend has no other dependency to add for it. It is written by hand rather than generated, because generating it from Go would need a library or annotations; instead, the contract tests in `backend/internal/httpapi/openapi_test.go` fail when it and the code disagree:
+
+- the `operation` enum is not exactly calc's operation table, or an operation has no success example;
+- a code in the `statuses` table is missing or listed under another status, or the document lists a code the service does not have (only nginx's `SERVICE_UNAVAILABLE`, under 503, is allowed);
+- an error response does not use the error schema for its status, or one of its examples has a code that status does not carry;
+- the number pattern, the operand length limit or the request ID pattern differs from the code, or a description gives a number of significant digits, characters or bytes that is not the limit in the code;
+- a path or method in the document is not a registered route, or a registered route is not in the document;
+- an example is not what the service sends. Each request example is sent to the real handler and must get the response example of the same name: the same status, content type and JSON body, message included. The response examples that no request produces (a body over 4 KiB, the 404, the 405 and the 500) are produced by a test as well. Only nginx's 503 cannot be produced in the Go tests.
+
+The examples sit at the limits, such as a 35-digit operand and an exponent of 1001, so changing a limit without the document fails a test.
+
+The document was also checked once with Redocly CLI 2.77.0 (`redocly lint`, recommended rules), which is not part of the repo: no errors. The warnings left are deliberate: five values in request examples that break the schema on purpose to show an error (a JSON-number operand, `1e5`, an unknown key, an unknown operation), the shared 404 and 405 responses, which belong to no single operation, no 4XX response on the two `GET` operations, and no license.
+
 ## Architecture
 
 ```mermaid
@@ -160,7 +187,7 @@ flowchart TB
     subgraph service["calculator service: one Go binary, own container"]
         subgraph transport["internal/httpapi: transport"]
             rid["Request ID"]
-            router["Router: calculate, healthz,<br/>JSON 404 and 405"]
+            router["Router: calculate, healthz, openapi.json,<br/>JSON 404 and 405"]
             endpoint["Endpoint wrapper<br/>body limit, panic recovery<br/>error JSON, log line"]
             decode["Decode JSON, check shape"]
         end
@@ -323,7 +350,7 @@ Last measured on 2026-11-26:
   - a direct write to a package-level variable: an assignment, `++` or `--`, `delete`, `clear`, or taking its address (a write through a copied map reference is not caught)
 
   That check is itself tested against a sample that breaks each rule.
-- **`internal/httpapi`:** every status and error code is tested, including the exact 4 KiB body limit, duplicate keys, oversized bodies that are not JSON, paths not in clean form, and a 405 on every route. Each error must produce exactly one info-level log line carrying the request ID the client received. Panics and unmapped codes must become a 500 whose log line keeps the original error. One test fails if a `calc` error code, found by type-checking the package, has no HTTP status. Another fails if the package imports the decimal library.
+- **`internal/httpapi`:** every status and error code is tested, including the exact 4 KiB body limit, duplicate keys, oversized bodies that are not JSON, paths not in clean form, and a 405 on every route. Each error must produce exactly one info-level log line carrying the request ID the client received. Panics and unmapped codes must become a 500 whose log line keeps the original error. One test fails if a `calc` error code, found by type-checking the package, has no HTTP status. Another fails if the package imports the decimal library. The OpenAPI contract tests are described under [API documentation](#api-documentation).
 - **`cmd/calculator`:** a request still in flight when shutdown starts must complete, and the `-healthcheck` flag is tested.
 
 The frontend:
