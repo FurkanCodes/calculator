@@ -271,3 +271,9 @@ Outcome: Fixed every re-review finding.
 - Planned content moved out of the README.
 
 Each new test was checked to fail on the old code. Recorded the `%` key behaviour (pocket-calculator style: `50 + 10 % =` gives `55`) and the long-result display (shrink, then scroll, with a copy button) in `docs/frontend-design.md` and `CLAUDE.md`.
+
+### 23
+
+> yes merge it, and add worktrees to gitignore
+
+Outcome: Fast-forwarded `main` to `feature/backend-core` and added `.claude/worktrees/` to `.gitignore`.
