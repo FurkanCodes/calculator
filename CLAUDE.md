@@ -2,13 +2,13 @@
 
 Take-home assignment: a React + TypeScript calculator that calls a Go REST service. The brief allows 2–4 hours and ranks correctness, clarity and maintainability above extra features. When the choice is between another feature and a tighter core, pick the core.
 
-`README.md` is the spec. If code and README disagree, fix one of them before merging.
+`README.md` describes only what is built, never planned work as if it were done. Everything still to build is a checklist in `stories.md`; planned designs live in `docs/` and in the rules below. When an item is built and verified, tick it in `stories.md` and move its description into the README in the same commit.
 
 ## Scope
 
 - One Go service (`backend/`) and one React app (`frontend/`) in one repo.
 - Operations: `add`, `subtract`, `multiply`, `divide`. Then `power`, `sqrt` and `percentage`, once the core is done and tested.
-- Described in the README only, not built: the API gateway, API keys, rate limiting and the AWS deployment.
+- Designed in `docs/production-design.md` only, never built: the API gateway, API keys, rate limiting and the AWS deployment.
 - Docker Compose runs two containers: `web` and `calculator`. In `web`, nginx serves the built frontend and forwards `/api/*` to the service, so the page and the API share one origin. nginx is not an API gateway: don't describe it as one. The calculator has no public port. Until the `web` container exists, `docker-compose.yml` publishes it on `127.0.0.1:8081` only; remove that mapping when `web` is added.
 
 ## Architecture

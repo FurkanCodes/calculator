@@ -205,3 +205,23 @@ Outcome: Added the server entry point (`cmd/calculator`, with graceful shutdown 
 > Contiue
 
 Outcome: Added `POST /api/v1/calculate`, with strict JSON decoding (operands must be strings), the error format for every code including JSON 404 and 405 responses, request IDs, panic recovery, and one log line per request. Checked it in the running container with the README's curl examples.
+
+### 15
+
+> Run the code quality review and report back
+
+Outcome: The skill can only be started from its slash command, so a separate reviewer agent was given the skill file and the branch, but none of Claude's reasoning about the code. Findings are in the next session entry.
+
+### 16
+
+> Our readme is very bloated,
+>
+> [Pasted review notes recommending, section by section, what to keep, shorten, remove or move to `docs/`; that the AWS architecture be moved to `docs/production-design.md`; and a list of technical issues: consider cockroachdb/apd, verify Go 1.27.4, drop the API key architecture, keep the `exact` field and shared fixtures, account for non-invertible operations in the fuzz test, prioritise functional tests over CI smoke tests, include measured coverage, and don't describe unimplemented features as completed.]
+
+Outcome: README cut from 422 to 227 lines. It now describes only what is built, with planned parts marked and drawn with dashed lines in the diagram. The frontend and AWS designs moved to `docs/`, and the request and API-key sequence diagrams were removed. Measured coverage was added. The Go version and the fuzz test's handling of rounding, range and multiplication by zero were checked and needed no change.
+
+### 17
+
+> Create stories.md and write down everything we are suppose to implement and tick them one by one.
+
+Outcome: `stories.md` lists every deliverable in build order, with the brief's requirements marked, and ticks only items that are built and verified.
