@@ -167,6 +167,7 @@ func TestErrorResponses(t *testing.T) {
 		{"GET on calculate", http.MethodGet, calculatePath, "", 405, "METHOD_NOT_ALLOWED"},
 		{"POST on healthz", http.MethodPost, "/healthz", "", 405, "METHOD_NOT_ALLOWED"},
 		{"DELETE on healthz", http.MethodDelete, "/healthz", "", 405, "METHOD_NOT_ALLOWED"},
+		{"POST on the API description", http.MethodPost, "/api/v1/openapi.json", "", 405, "METHOD_NOT_ALLOWED"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -199,6 +200,7 @@ func TestWrongMethodListsAllowedMethods(t *testing.T) {
 	tests := []struct{ method, path, allow string }{
 		{http.MethodPut, calculatePath, "POST"},
 		{http.MethodPost, "/healthz", "GET, HEAD"},
+		{http.MethodPut, "/api/v1/openapi.json", "GET, HEAD"},
 	}
 	for _, tt := range tests {
 		rec, _ := send(t, tt.method, tt.path, "", nil)

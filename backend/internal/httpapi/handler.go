@@ -15,12 +15,31 @@ import (
 func NewHandler(logger *slog.Logger) http.Handler {
 	s := &server{logger: logger}
 	mux := http.NewServeMux()
-	// Health checks bypass endpoint, so they are not logged: Compose and load
-	// balancers call them every few seconds.
-	s.route(mux, http.MethodGet, "/healthz", http.HandlerFunc(healthz))
-	s.route(mux, http.MethodPost, "/api/v1/calculate", s.endpoint(calculate))
+	for _, r := range s.routes() {
+		s.route(mux, r.method, r.path, r.handler)
+	}
 	mux.Handle("/", s.endpoint(notFound))
 	return withRequestID(s.canonicalPathsOnly(mux))
+}
+
+type routeDef struct {
+	method, path string
+	handler      http.Handler
+}
+
+// routes is every route the service answers. openapi.json describes exactly
+// these, and TestSpecDescribesEveryRoute fails when the two differ.
+func (s *server) routes() []routeDef {
+	return []routeDef{
+		// Health checks bypass endpoint, so they are not logged: Compose and
+		// load balancers call them every few seconds.
+		{http.MethodGet, "/healthz", http.HandlerFunc(healthz)},
+		{http.MethodPost, "/api/v1/calculate", s.endpoint(calculate)},
+		// The API description is a static document, but it is an API request
+		// like any other, so it goes through endpoint and is logged. A docs
+		// page fetches it once per load, not every few seconds.
+		{http.MethodGet, "/api/v1/openapi.json", s.endpoint(openapi)},
+	}
 }
 
 // canonicalPathsOnly answers a path that is not in clean form, such as

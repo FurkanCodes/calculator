@@ -1,0 +1,580 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Calculator API",
+    "version": "1.0.0",
+    "summary": "Exact decimal arithmetic over HTTP.",
+    "description": "The calculator service does exact decimal arithmetic: `0.1 + 0.2` is `0.3`. When a result has to be rounded, such as `1 ÷ 3`, the response says so with `\"exact\": false`.\n\n**Numbers are JSON strings**, in requests and responses, so no number passes through binary floating point. A JSON number as an operand is rejected with `INVALID_NUMBER`.\n\n**Precision.** Every result keeps at most 34 significant digits, rounded half to even, in one rounding step. Inputs over the number limits are rejected, never rounded.\n\n**Errors** all have one shape, `{\"error\": {\"code\": \"...\", \"message\": \"...\"}}`, and each code always comes with the same HTTP status. Clients should act on `code`; `message` is for people and may change.\n\n| Status | Codes |\n| --- | --- |\n| 400 | `INVALID_REQUEST`, `INVALID_NUMBER`, `WRONG_OPERAND_COUNT`, `UNSUPPORTED_OPERATION` |\n| 404 | `NOT_FOUND` |\n| 405 | `METHOD_NOT_ALLOWED` |\n| 413 | `INPUT_TOO_LARGE` |\n| 422 | `DIVISION_BY_ZERO`, `NEGATIVE_SQUARE_ROOT`, `INVALID_EXPONENT`, `OUT_OF_RANGE` |\n| 500 | `INTERNAL_ERROR` |\n| 503 | `SERVICE_UNAVAILABLE`, sent by the web container's nginx, never by the calculator |\n\nTwo of them can come from any request, so they are described here rather than under each operation: a path not listed below is `404 NOT_FOUND` (so is a path not in clean form, such as `/api/v1//calculate` or a trailing slash), and a method a listed path does not accept is `405 METHOD_NOT_ALLOWED`, with an `Allow` header. Their response definitions are `NotFound` and `MethodNotAllowed` under `components.responses`.\n\n**Request IDs.** Every response carries an `X-Request-ID` header. Send a well-formed one (1 to 64 letters, digits or hyphens) and it is kept; otherwise a new one is made. The service's log line for an API request carries the same ID."
+  },
+  "security": [],
+  "servers": [
+    {
+      "url": "/",
+      "description": "The origin serving this document."
+    }
+  ],
+  "tags": [
+    {
+      "name": "Calculator",
+      "description": "Arithmetic."
+    },
+    {
+      "name": "Service",
+      "description": "Health and this description."
+    }
+  ],
+  "paths": {
+    "/api/v1/calculate": {
+      "post": {
+        "tags": ["Calculator"],
+        "operationId": "calculate",
+        "summary": "Run one operation",
+        "description": "Runs one operation on its operands and returns the result as a decimal string.\n\n| Operation | Operands | Result |\n| --- | --- | --- |\n| `add` | 2 | a + b |\n| `subtract` | 2 | a − b |\n| `multiply` | 2 | a × b |\n| `divide` | 2 | a ÷ b. A zero divisor is `DIVISION_BY_ZERO`. |\n| `percentage` | 2 | a% of b, which is a × b ÷ 100 |\n| `power` | 2 | a to the power b. b must be a whole number from −1000 to 1000, checked by value, so `\"2.0\"` and `\"-0\"` are accepted; anything else is `INVALID_EXPONENT`. `0^0` is `1`, and zero to a negative power is `DIVISION_BY_ZERO`. |\n| `sqrt` | 1 | the square root of a. A negative operand is `NEGATIVE_SQUARE_ROOT`. |\n\nEvery result follows the same number rules as an operand, so it can be sent back as one. A result outside the range is `OUT_OF_RANGE`.\n\nThe request examples below each have a response example of the same name, and a test sends every one of them to the service and checks that it gets exactly that response.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalculateRequest"
+              },
+              "examples": {
+                "add": {
+                  "summary": "0.1 + 0.2, exactly",
+                  "value": {"operation": "add", "operands": ["0.1", "0.2"]}
+                },
+                "subtract": {
+                  "summary": "5 − 7.5",
+                  "value": {"operation": "subtract", "operands": ["5", "7.5"]}
+                },
+                "multiply": {
+                  "summary": "1.5 × 4",
+                  "value": {"operation": "multiply", "operands": ["1.5", "4"]}
+                },
+                "divide": {
+                  "summary": "1 ÷ 3, rounded",
+                  "value": {"operation": "divide", "operands": ["1", "3"]}
+                },
+                "percentage": {
+                  "summary": "12.5% of 80",
+                  "value": {"operation": "percentage", "operands": ["12.5", "80"]}
+                },
+                "power": {
+                  "summary": "2 to the power −3",
+                  "value": {"operation": "power", "operands": ["2", "-3"]}
+                },
+                "sqrt": {
+                  "summary": "Square root of 2, rounded",
+                  "value": {"operation": "sqrt", "operands": ["2"]}
+                },
+                "jsonNumberOperands": {
+                  "summary": "Error: operands as JSON numbers",
+                  "description": "Deliberately breaks the schema: operands must be strings.",
+                  "value": {"operation": "add", "operands": [0.1, 0.2]}
+                },
+                "invalidNumber": {
+                  "summary": "Error: an exponent in an operand",
+                  "description": "Deliberately breaks the schema: `1e5` does not match the number pattern.",
+                  "value": {"operation": "add", "operands": ["1", "1e5"]}
+                },
+                "unknownKey": {
+                  "summary": "Error: a key other than operation and operands",
+                  "description": "Deliberately breaks the schema: no other keys are allowed.",
+                  "value": {"operation": "add", "operands": ["1", "2"], "precision": 10}
+                },
+                "wrongOperandCount": {
+                  "summary": "Error: two operands for sqrt",
+                  "value": {"operation": "sqrt", "operands": ["4", "9"]}
+                },
+                "unsupportedOperation": {
+                  "summary": "Error: an operation that does not exist",
+                  "description": "Deliberately breaks the schema: modulo is not in the enum.",
+                  "value": {"operation": "modulo", "operands": ["7", "2"]}
+                },
+                "tooManyDigits": {
+                  "summary": "Error: an operand one digit over the limit",
+                  "value": {"operation": "add", "operands": ["1", "12345678901234567890123456789012345"]}
+                },
+                "divisionByZero": {
+                  "summary": "Error: division by zero",
+                  "value": {"operation": "divide", "operands": ["10", "0"]}
+                },
+                "zeroToNegativePower": {
+                  "summary": "Error: zero to a negative power",
+                  "value": {"operation": "power", "operands": ["0", "-1"]}
+                },
+                "negativeSquareRoot": {
+                  "summary": "Error: square root of a negative number",
+                  "value": {"operation": "sqrt", "operands": ["-4"]}
+                },
+                "fractionalExponent": {
+                  "summary": "Error: a fractional exponent",
+                  "value": {"operation": "power", "operands": ["2", "0.5"]}
+                },
+                "exponentOverLimit": {
+                  "summary": "Error: an exponent of 1001",
+                  "value": {"operation": "power", "operands": ["1", "1001"]}
+                },
+                "resultOutOfRange": {
+                  "summary": "Error: a result of 10¹⁰⁰",
+                  "value": {"operation": "power", "operands": ["10", "100"]}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The result. `exact` is `false` when it was rounded.",
+            "headers": {
+              "X-Request-ID": {"$ref": "#/components/headers/RequestId"}
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalculateResponse"
+                },
+                "examples": {
+                  "add": {
+                    "summary": "0.1 + 0.2, exactly",
+                    "value": {"result": "0.3", "exact": true}
+                  },
+                  "subtract": {
+                    "summary": "5 − 7.5",
+                    "value": {"result": "-2.5", "exact": true}
+                  },
+                  "multiply": {
+                    "summary": "1.5 × 4",
+                    "value": {"result": "6", "exact": true}
+                  },
+                  "divide": {
+                    "summary": "1 ÷ 3, rounded to 34 digits",
+                    "value": {"result": "0.3333333333333333333333333333333333", "exact": false}
+                  },
+                  "percentage": {
+                    "summary": "12.5% of 80",
+                    "value": {"result": "10", "exact": true}
+                  },
+                  "power": {
+                    "summary": "2 to the power −3",
+                    "value": {"result": "0.125", "exact": true}
+                  },
+                  "sqrt": {
+                    "summary": "Square root of 2, rounded to 34 digits",
+                    "value": {"result": "1.414213562373095048801688724209698", "exact": false}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request is malformed, an operand is not a valid number, the operand count is wrong for the operation, or the operation does not exist.",
+            "headers": {
+              "X-Request-ID": {"$ref": "#/components/headers/RequestId"}
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error400"
+                },
+                "examples": {
+                  "jsonNumberOperands": {
+                    "summary": "Operands as JSON numbers",
+                    "value": {"error": {"code": "INVALID_NUMBER", "message": "Operands must be strings, for example \"0.1\"."}}
+                  },
+                  "invalidNumber": {
+                    "summary": "An exponent in an operand",
+                    "value": {"error": {"code": "INVALID_NUMBER", "message": "Operand 2 is not a valid number. Use a plain decimal such as \"-12.5\"."}}
+                  },
+                  "unknownKey": {
+                    "summary": "A key other than operation and operands",
+                    "value": {"error": {"code": "INVALID_REQUEST", "message": "The body must be one JSON object with exactly two keys: \"operation\" (a string) and \"operands\" (an array of strings)."}}
+                  },
+                  "wrongOperandCount": {
+                    "summary": "Two operands for sqrt",
+                    "value": {"error": {"code": "WRONG_OPERAND_COUNT", "message": "\"sqrt\" expects 1 operand, got 2."}}
+                  },
+                  "unsupportedOperation": {
+                    "summary": "An operation that does not exist",
+                    "value": {"error": {"code": "UNSUPPORTED_OPERATION", "message": "Unsupported operation \"modulo\". Supported operations: add, divide, multiply, percentage, power, sqrt, subtract."}}
+                  }
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is over 4 KiB (4096 bytes), or an operand is over 256 characters or 34 significant digits.",
+            "headers": {
+              "X-Request-ID": {"$ref": "#/components/headers/RequestId"}
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error413"
+                },
+                "examples": {
+                  "tooManyDigits": {
+                    "summary": "An operand one digit over the limit",
+                    "value": {"error": {"code": "INPUT_TOO_LARGE", "message": "Operand 2 has more than 34 significant digits."}}
+                  },
+                  "bodyTooLarge": {
+                    "summary": "A body over 4 KiB",
+                    "value": {"error": {"code": "INPUT_TOO_LARGE", "message": "The request body is larger than 4096 bytes."}}
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The request is well-formed, but the operation has no result for these operands.",
+            "headers": {
+              "X-Request-ID": {"$ref": "#/components/headers/RequestId"}
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error422"
+                },
+                "examples": {
+                  "divisionByZero": {
+                    "summary": "Division by zero",
+                    "value": {"error": {"code": "DIVISION_BY_ZERO", "message": "Cannot divide by zero."}}
+                  },
+                  "zeroToNegativePower": {
+                    "summary": "Zero to a negative power",
+                    "value": {"error": {"code": "DIVISION_BY_ZERO", "message": "Cannot raise zero to a negative power."}}
+                  },
+                  "negativeSquareRoot": {
+                    "summary": "Square root of a negative number",
+                    "value": {"error": {"code": "NEGATIVE_SQUARE_ROOT", "message": "Cannot take the square root of a negative number."}}
+                  },
+                  "fractionalExponent": {
+                    "summary": "A fractional exponent",
+                    "value": {"error": {"code": "INVALID_EXPONENT", "message": "The exponent must be a whole number from -1000 to 1000."}}
+                  },
+                  "exponentOverLimit": {
+                    "summary": "An exponent of 1001",
+                    "value": {"error": {"code": "INVALID_EXPONENT", "message": "The exponent must be a whole number from -1000 to 1000."}}
+                  },
+                  "resultOutOfRange": {
+                    "summary": "A result of 10¹⁰⁰",
+                    "value": {"error": {"code": "OUT_OF_RANGE", "message": "The result is outside the supported range of 1e-100 to 1e100."}}
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/openapi.json": {
+      "get": {
+        "tags": ["Service"],
+        "operationId": "getOpenAPI",
+        "summary": "Get this API description",
+        "description": "Returns this OpenAPI 3.1 document.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "This document.",
+            "headers": {
+              "X-Request-ID": {"$ref": "#/components/headers/RequestId"}
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "An OpenAPI 3.1 document."
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "tags": ["Service"],
+        "operationId": "getHealth",
+        "summary": "Check that the service is up",
+        "description": "Returns `{\"status\": \"ok\"}` while the process is running. It does no other work and is not logged.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The process is up.",
+            "headers": {
+              "X-Request-ID": {"$ref": "#/components/headers/RequestId"}
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                },
+                "examples": {
+                  "ok": {
+                    "summary": "Up",
+                    "value": {"status": "ok"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CalculateRequest": {
+        "type": "object",
+        "description": "Exactly these two keys, each once, matched case-sensitively. A missing, repeated or extra key, a body that is not one JSON object, or anything after the object is `400 INVALID_REQUEST`. The whole body is at most 4 KiB (4096 bytes); a larger one is `413 INPUT_TOO_LARGE`.",
+        "required": ["operation", "operands"],
+        "additionalProperties": false,
+        "properties": {
+          "operation": {
+            "type": "string",
+            "description": "The operation to run. Another string is `400 UNSUPPORTED_OPERATION`; a value that is not a string is `400 INVALID_REQUEST`.",
+            "enum": ["add", "subtract", "multiply", "divide", "percentage", "power", "sqrt"]
+          },
+          "operands": {
+            "type": "array",
+            "description": "The operands, as strings. `sqrt` takes one; every other operation takes two, in the order the operation names them (`divide` is the first ÷ the second). The wrong count is `400 WRONG_OPERAND_COUNT`. An element that is not a string, such as the JSON number `0.1`, is `400 INVALID_NUMBER`; an `operands` that is not an array is `400 INVALID_REQUEST`.",
+            "items": {
+              "$ref": "#/components/schemas/Number"
+            }
+          }
+        }
+      },
+      "CalculateResponse": {
+        "type": "object",
+        "required": ["result", "exact"],
+        "additionalProperties": false,
+        "properties": {
+          "result": {
+            "$ref": "#/components/schemas/Number",
+            "description": "The result. It follows the operand rules, so it can be sent back as an operand."
+          },
+          "exact": {
+            "type": "boolean",
+            "description": "`false` when the result was rounded to 34 significant digits, half to even. Always present."
+          }
+        }
+      },
+      "Number": {
+        "type": "string",
+        "description": "A decimal number as a string. The rules are checked in this order:\n\n1. At most 256 characters. Longer is `413 INPUT_TOO_LARGE`.\n2. A plain decimal: an optional minus sign, digits, and an optional fraction. No `+`, exponent, spaces, or leading or trailing point. Anything else is `400 INVALID_NUMBER`.\n3. At most 34 significant digits, counted from the first non-zero digit to the last, so `0.00012` has 2 and `1200` has 2. More is `413 INPUT_TOO_LARGE`.\n4. Zero, or a magnitude from 10⁻¹⁰⁰ up to, but not including, 10¹⁰⁰. Outside that is `422 OUT_OF_RANGE`.",
+        "pattern": "^-?[0-9]+(\\.[0-9]+)?$",
+        "maxLength": 256,
+        "examples": ["-12.5", "0.001", "42"]
+      },
+      "Health": {
+        "type": "object",
+        "required": ["status"],
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "description": "Every error response has this shape.",
+        "required": ["error"],
+        "additionalProperties": false,
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "What went wrong, as a stable name. Act on this."
+              },
+              "message": {
+                "type": "string",
+                "description": "An explanation for people. It may change."
+              }
+            }
+          }
+        }
+      },
+      "Error400": {
+        "description": "The codes sent with status 400.",
+        "allOf": [
+          {"$ref": "#/components/schemas/Error"},
+          {"properties": {"error": {"properties": {"code": {"enum": ["INVALID_REQUEST", "INVALID_NUMBER", "WRONG_OPERAND_COUNT", "UNSUPPORTED_OPERATION"]}}}}}
+        ]
+      },
+      "Error404": {
+        "description": "The code sent with status 404.",
+        "allOf": [
+          {"$ref": "#/components/schemas/Error"},
+          {"properties": {"error": {"properties": {"code": {"enum": ["NOT_FOUND"]}}}}}
+        ]
+      },
+      "Error405": {
+        "description": "The code sent with status 405.",
+        "allOf": [
+          {"$ref": "#/components/schemas/Error"},
+          {"properties": {"error": {"properties": {"code": {"enum": ["METHOD_NOT_ALLOWED"]}}}}}
+        ]
+      },
+      "Error413": {
+        "description": "The code sent with status 413.",
+        "allOf": [
+          {"$ref": "#/components/schemas/Error"},
+          {"properties": {"error": {"properties": {"code": {"enum": ["INPUT_TOO_LARGE"]}}}}}
+        ]
+      },
+      "Error422": {
+        "description": "The codes sent with status 422.",
+        "allOf": [
+          {"$ref": "#/components/schemas/Error"},
+          {"properties": {"error": {"properties": {"code": {"enum": ["DIVISION_BY_ZERO", "NEGATIVE_SQUARE_ROOT", "INVALID_EXPONENT", "OUT_OF_RANGE"]}}}}}
+        ]
+      },
+      "Error500": {
+        "description": "The code sent with status 500.",
+        "allOf": [
+          {"$ref": "#/components/schemas/Error"},
+          {"properties": {"error": {"properties": {"code": {"enum": ["INTERNAL_ERROR"]}}}}}
+        ]
+      },
+      "Error503": {
+        "description": "The code sent with status 503, by the web container's nginx only.",
+        "allOf": [
+          {"$ref": "#/components/schemas/Error"},
+          {"properties": {"error": {"properties": {"code": {"enum": ["SERVICE_UNAVAILABLE"]}}}}}
+        ]
+      }
+    },
+    "parameters": {
+      "RequestId": {
+        "name": "X-Request-ID",
+        "in": "header",
+        "required": false,
+        "description": "An ID for this request, to find its log line. A well-formed one is kept and sent back; anything else is replaced with a new one.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9-]{1,64}$"
+        },
+        "example": "4f2a9c1e-77b0"
+      }
+    },
+    "headers": {
+      "RequestId": {
+        "description": "The request's ID: the incoming `X-Request-ID` if it was well-formed, otherwise a new one. The service's log line for an API request carries the same ID.",
+        "schema": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9-]{1,64}$"
+        }
+      }
+    },
+    "responses": {
+      "NotFound": {
+        "description": "Nothing is at this path, or the path is not in clean form. Any request can get this.",
+        "headers": {
+          "X-Request-ID": {"$ref": "#/components/headers/RequestId"}
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error404"
+            },
+            "examples": {
+              "unknownPath": {
+                "summary": "GET /api/v2/calculate",
+                "value": {"error": {"code": "NOT_FOUND", "message": "There is nothing at /api/v2/calculate."}}
+              }
+            }
+          }
+        }
+      },
+      "MethodNotAllowed": {
+        "description": "The path exists, but not with this method. Any listed path can send this for a method it does not accept.",
+        "headers": {
+          "X-Request-ID": {"$ref": "#/components/headers/RequestId"},
+          "Allow": {
+            "description": "The methods the path accepts: `POST`, or `GET, HEAD`.",
+            "schema": {"type": "string"}
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error405"
+            },
+            "examples": {
+              "getCalculate": {
+                "summary": "GET /api/v1/calculate",
+                "value": {"error": {"code": "METHOD_NOT_ALLOWED", "message": "GET is not allowed on /api/v1/calculate."}}
+              }
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "A bug in the service. The cause is logged with the request ID; the message is always the same.",
+        "headers": {
+          "X-Request-ID": {"$ref": "#/components/headers/RequestId"}
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error500"
+            },
+            "examples": {
+              "internalError": {
+                "summary": "A bug",
+                "value": {"error": {"code": "INTERNAL_ERROR", "message": "An unexpected error occurred."}}
+              }
+            }
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "Sent by the web container's nginx, never by the calculator: the calculator could not be reached or did not answer in time. nginx sets `X-Request-ID` on it too.",
+        "headers": {
+          "X-Request-ID": {"$ref": "#/components/headers/RequestId"}
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error503"
+            },
+            "examples": {
+              "serviceUnavailable": {
+                "summary": "The calculator is down",
+                "value": {"error": {"code": "SERVICE_UNAVAILABLE", "message": "The calculator service is unavailable. Try again shortly."}}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
