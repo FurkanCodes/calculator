@@ -378,9 +378,3 @@ Confirmed the four reasons from the design phase, and the alternative of serving
 > add the nginx reasons to the readme
 
 Added a "nginx in front, two containers" design decision to the README.
-
-### 42
-
-> what if we remove ngnix and just seperate backend and frontend ?
-
-Weighed it. The two apps are already separate containers. Dropping nginx would need CORS, a build-time API URL, a published backend port and a new home for `/docs/`, for little gain. Kept nginx.
