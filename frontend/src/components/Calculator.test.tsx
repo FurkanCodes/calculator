@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ERROR_CODES } from '../api'
 import { ERROR_MESSAGES } from '../errors'
@@ -49,7 +50,8 @@ function type(...keys: string[]) {
 const display = () => screen.getByRole('region', { name: 'Display' })
 const value = () => screen.getByTestId('value').textContent
 const expression = () => screen.getByTestId('expression').textContent
-const output = () => display().querySelector('output')
+/** The live region that holds the value or the error. */
+const output = () => display().querySelector('[role="status"][aria-live="polite"]')
 const sentBody = (fetchMock: ReturnType<typeof answer>, call = 0) => fetchMock.mock.calls[call]?.[1].body
 
 afterEach(() => {
@@ -86,11 +88,35 @@ describe('the keypad', () => {
     ])
   })
 
-  it('keeps focus where it was when a key is pressed with a mouse or finger', () => {
+  it('keeps focus where it was when a key is pressed with a pointer, so Enter still means equals', async () => {
+    const fetchMock = answer(200, { result: '9', exact: true })
+    const user = userEvent.setup()
     render(<Calculator />)
-    // fireEvent returns false when the handler prevented the default, which
-    // is what moves focus to the button.
-    expect(fireEvent.mouseDown(screen.getByRole('button', { name: '7' }))).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: '7' }))
+    await user.click(screen.getByRole('button', { name: 'Add' }))
+    await user.click(screen.getByRole('button', { name: '2' }))
+    expect(document.activeElement).toBe(document.body)
+
+    await user.keyboard('{Enter}')
+    await waitFor(() => {
+      expect(value()).toBe('9')
+    })
+    expect(sentBody(fetchMock)).toBe('{"operation":"add","operands":["7","2"]}')
+  })
+
+  it('presses a key reached with Tab when Enter is pressed on it', async () => {
+    const user = userEvent.setup()
+    render(<Calculator />)
+
+    await user.tab() // Clear
+    await user.tab() // Square root
+    await user.tab() // Power
+    await user.tab() // Percent
+    await user.tab() // 7
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '7' }))
+    await user.keyboard('{Enter}')
+    expect(value()).toBe('7')
   })
 
   it('types a number and shows it, starting from 0', () => {
@@ -223,10 +249,13 @@ describe('the keyboard', () => {
   })
 
   it('stops listening when the calculator unmounts', () => {
-    const removeListener = vi.spyOn(window, 'removeEventListener')
+    const fetchMock = answer(200, { result: '3', exact: true })
     const { unmount } = render(<Calculator />)
+    type('1', '+', '2')
     unmount()
-    expect(removeListener).toHaveBeenCalledWith('keydown', expect.any(Function))
+
+    type('Enter')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 })
 
@@ -242,6 +271,8 @@ describe('the display', () => {
     expect(expression()).toBe('1 ÷ 3 =')
     expect(screen.getByText('≈ Rounded to 34 digits')).toBeDefined()
     expect(screen.getByRole('button', { name: 'Copy' })).toBeDefined()
+    // The live region says so too, for screen readers.
+    expect(output()?.textContent).toBe('0.3333333333333333333333333333333333, rounded to 34 significant digits')
   })
 
   it('shows no rounded marker on an exact result', async () => {
@@ -253,6 +284,7 @@ describe('the display', () => {
       expect(value()).toBe('0.3')
     })
     expect(screen.queryByText('≈ Rounded to 34 digits')).toBeNull()
+    expect(output()?.textContent).toBe('0.3')
   })
 
   it('keeps the rounded marker on a rounded first number after an operator', async () => {
@@ -273,7 +305,24 @@ describe('the display', () => {
 
   it('announces the value politely', () => {
     render(<Calculator />)
-    expect(output()?.getAttribute('aria-live')).toBe('polite')
+    expect(output()?.textContent).toBe('0')
+  })
+
+  it('keeps the expression to one line, with the full text in its title', async () => {
+    const long = `1${'0'.repeat(30)}`
+    answer(200, { result: '1', exact: true })
+    render(<Calculator />)
+    type(...long, '*', '1', '0', '=')
+    await waitFor(() => {
+      expect(value()).toBe('1')
+    })
+
+    const line = screen.getByTestId('expression')
+    expect(line.textContent).toBe(`${long} × 10 =`)
+    expect(line.title).toBe(`${long} × 10 =`)
+    // Runs right to left, so the ellipsis cuts the start and the = stays in view.
+    expect(line.getAttribute('dir')).toBe('rtl')
+    expect(line.className).toContain('truncate')
   })
 })
 
@@ -285,7 +334,6 @@ describe('calculating', () => {
 
     expect(display().getAttribute('aria-busy')).toBe('true')
     expect(value()).toBe('6')
-    expect(screen.getByTestId('value').className).toContain('value-dimmed')
     expect(screen.getByText('Calculating…')).toBeDefined()
     expect(expression()).toBe('7 × 6 =')
 

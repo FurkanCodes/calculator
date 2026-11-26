@@ -1,14 +1,12 @@
 import { displayModel } from '../display'
 import { useCalculator } from '../useCalculator'
 import { useKeyboard } from '../useKeyboard'
-import { useSettledFrom } from '../useSettledFrom'
 import { DisplayCard } from './DisplayCard'
 import { Keypad } from './Keypad'
 
 /** The one screen: a header, the display card and the keypad, in one column. */
 export function Calculator() {
   const { state, press } = useCalculator()
-  const settledFrom = useSettledFrom(state)
   useKeyboard(press)
 
   return (
@@ -17,7 +15,7 @@ export function Calculator() {
         <h1 className="text-[17px] font-semibold">Calculator</h1>
         <p className="text-[13px] text-muted">Exact decimals</p>
       </header>
-      <DisplayCard model={displayModel(state, settledFrom)} />
+      <DisplayCard model={displayModel(state)} />
       <Keypad onPress={press} />
     </main>
   )

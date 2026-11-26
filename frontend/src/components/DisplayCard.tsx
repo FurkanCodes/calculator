@@ -13,13 +13,11 @@ export function DisplayCard({ model }: { model: DisplayModel }) {
   return (
     <section
       aria-label="Display"
-      aria-busy={value.kind === 'calculating'}
+      aria-busy={value.kind === 'number' && value.dimmed}
       className={`flex min-h-48 flex-1 flex-col justify-end rounded-[14px] border bg-surface p-5 ${failed ? 'border-error-border' : 'border-hairline'}`}
     >
-      <p className="min-h-[1lh] text-right font-mono text-[17px] wrap-anywhere text-muted" data-testid="expression">
-        {expression}
-      </p>
-      <output aria-live="polite" className="mt-1 block">
+      <Expression text={expression} />
+      <div role="status" aria-live="polite" className="mt-1">
         {value.kind === 'failure' ? (
           <p className="py-1 text-right text-xl leading-snug font-medium text-balance text-error">
             {value.reason === 'unreachable' ? (
@@ -30,14 +28,12 @@ export function DisplayCard({ model }: { model: DisplayModel }) {
             {value.message}
           </p>
         ) : (
-          <ValueText
-            text={value.text}
-            anchor={value.kind === 'number' ? value.anchor : 'start'}
-            dimmed={value.kind === 'calculating'}
-            textRef={textRef}
-          />
+          <>
+            <ValueText text={value.text} anchor={value.anchor} dimmed={value.dimmed} textRef={textRef} />
+            {!value.exact && <span className="sr-only">, rounded to 34 significant digits</span>}
+          </>
         )}
-      </output>
+      </div>
       <div className="mt-2 flex h-11 items-center justify-between gap-2">
         <Footer value={value} textRef={textRef} />
       </div>
@@ -45,25 +41,46 @@ export function DisplayCard({ model }: { model: DisplayModel }) {
   )
 }
 
+/**
+ * One line. A long expression is cut at its start, so its end (the operator,
+ * or =) stays in view: the paragraph runs right to left, which puts the
+ * ellipsis on the left, and the text inside stays left to right. The full
+ * expression is in the DOM, and in the title for a pointer.
+ */
+function Expression({ text }: { text: string }) {
+  return (
+    <p
+      dir="rtl"
+      title={text || undefined}
+      className="min-h-[1lh] truncate font-mono text-[17px] text-muted"
+      data-testid="expression"
+    >
+      <span dir="ltr">{text}</span>
+    </p>
+  )
+}
+
 function Footer({ value, textRef }: { value: ValueModel; textRef: React.RefObject<HTMLSpanElement | null> }) {
-  switch (value.kind) {
-    case 'number':
-      return (
-        <>
-          {value.exact ? <span /> : <RoundedChip />}
-          {value.copyable && <CopyButton key={value.text} text={value.text} fallbackRef={textRef} />}
-        </>
-      )
-    case 'calculating':
-      return <Calculating />
-    case 'failure':
-      return <p className="text-sm text-muted">{value.hint}</p>
+  if (value.kind === 'failure') {
+    return <p className="text-sm text-muted">{value.hint}</p>
   }
+  if (value.dimmed) {
+    return <Calculating />
+  }
+  return (
+    <>
+      {value.exact ? <span /> : <RoundedChip />}
+      {value.copyable && <CopyButton key={value.text} text={value.text} fallbackRef={textRef} />}
+    </>
+  )
 }
 
 function RoundedChip() {
   return (
-    <span className="inline-flex h-7 items-center rounded-full bg-rounded-bg px-2.5 text-[13px] font-medium whitespace-nowrap text-rounded">
+    <span
+      aria-hidden="true"
+      className="inline-flex h-7 items-center rounded-full bg-rounded-bg px-2.5 text-[13px] font-medium whitespace-nowrap text-rounded"
+    >
       ≈ Rounded to 34 digits
     </span>
   )
