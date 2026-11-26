@@ -1,6 +1,6 @@
 # Frontend design
 
-**Status: planned, not built.** The backend it talks to is built.
+**Status: the logic core is built; the UI is not.** The number checks, the API client and the state machine below are built and tested in `frontend/src` (see the README). The keypad, display and layout are not built yet. The backend it talks to is built.
 
 ## Behaviour
 
@@ -21,17 +21,21 @@ stateDiagram-v2
     direction LR
     [*] --> EnteringFirst
     EnteringFirst --> OperatorChosen: operator
-    EnteringFirst --> Calculating: square root
+    EnteringFirst --> Calculating: square root or %
     OperatorChosen --> EnteringSecond: digit
-    EnteringSecond --> Calculating: equals or operator
-    Calculating --> ShowingResult: success
-    Calculating --> Error: error or no connection
+    EnteringSecond --> Calculating: equals, operator or %
+    Calculating --> ShowingResult: result
+    Calculating --> OperatorChosen: result, after an operator
+    Calculating --> EnteringSecond: result, after %
+    Calculating --> Error: error, invalid response or no connection
     ShowingResult --> OperatorChosen: operator
+    ShowingResult --> Calculating: square root or %
     ShowingResult --> EnteringFirst: digit
     Error --> EnteringFirst: digit
 ```
 
 - Digits, the decimal point and the sign key keep you in the current entry state.
+- On a result, a digit or the decimal point starts a new number, and the sign key negates the result and keeps its rounded marker.
 - Clear returns to `EnteringFirst` from any state, and cancels a request in flight.
 - In `Calculating`, every other key is ignored. When the request was started by an operator rather than `=`, the result becomes the first number with that operator already chosen.
 

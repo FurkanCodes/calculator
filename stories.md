@@ -63,10 +63,10 @@ Everything this project is meant to deliver, in build order. An item is ticked o
 
 - [x] Decide how the `%` key works and how long results are shown (in `docs/frontend-design.md`)
 - [x] Visual design and layout, drafted as an Artifact ("Ledger", spec in `docs/frontend-design.md`)
-- [ ] Scaffold: Vite, React, TypeScript, Tailwind CSS, Base UI **(brief)**
-- [ ] Zod number schema, tested against `testdata/numbers.json` **(brief: input validation)**
-- [ ] API client: `fetch`, Zod validation of responses, request cancelling with `AbortController`
-- [ ] Calculator state as a pure `useReducer`, with reducer tests
+- [x] Scaffold: Vite, React, TypeScript, Tailwind CSS, Base UI **(brief)**
+- [x] Zod number schema, tested against `testdata/numbers.json` **(brief: input validation)**
+- [x] API client: `fetch`, Zod validation of responses, request cancelling with `AbortController`
+- [x] Calculator state as a pure `useReducer`, with reducer tests
 - [ ] Keypad and keyboard input, result display with a "rounded" marker **(brief: intuitive UI)**
 - [ ] Error text per error code, and a "service unreachable" state **(brief: error handling)**
 - [ ] Responsive layout that works on a phone **(brief)**
