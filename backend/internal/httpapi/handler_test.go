@@ -17,8 +17,7 @@ const calculatePath = "/api/v1/calculate"
 
 type logLine map[string]any
 
-// send runs one request through the full handler and returns the response and
-// the log lines it produced.
+// send runs one request through the full handler, logging included.
 func send(t *testing.T, method, path, body string, header http.Header) (*httptest.ResponseRecorder, []logLine) {
 	t.Helper()
 	var logs bytes.Buffer
@@ -48,8 +47,6 @@ func parseLogs(t *testing.T, logs *bytes.Buffer) []logLine {
 	return lines
 }
 
-// errorCode decodes an error response and returns its code, failing the test
-// if the body is not in the error format.
 func errorCode(t *testing.T, rec *httptest.ResponseRecorder) string {
 	t.Helper()
 	var resp errorResponse
@@ -182,8 +179,8 @@ func TestErrorResponses(t *testing.T) {
 			if code := errorCode(t, rec); code != tt.code {
 				t.Errorf("code = %s, want %s", code, tt.code)
 			}
-			// Request errors are logged once, at info level, with their code
-			// and the same request ID the client received.
+			// A request error logs one info line with its code and the request
+			// ID the client got.
 			if len(logs) != 1 {
 				t.Fatalf("got %d log lines, want 1: %v", len(logs), logs)
 			}
@@ -259,8 +256,8 @@ func TestRequestID(t *testing.T) {
 	}
 }
 
-// serveWith runs h through endpoint and the request-ID middleware, returning
-// the response and the single log line it must produce.
+// serveWith runs h through endpoint and the request-ID middleware and expects
+// exactly one log line.
 func serveWith(t *testing.T, h handlerFunc) (*httptest.ResponseRecorder, logLine) {
 	t.Helper()
 	var logs bytes.Buffer
@@ -322,8 +319,8 @@ func TestNonCalcErrorBecomesInternalError(t *testing.T) {
 	}
 }
 
-// A body that fails to read for any reason but its size, such as a client that
-// disconnects mid-request, is reported as a malformed request.
+// Any read failure other than the size limit, like a client hanging up
+// mid-request, counts as a malformed request.
 func TestUnreadableBodyIsInvalidRequest(t *testing.T) {
 	_, apiErr := decodeCalculateRequest(iotest.ErrReader(errors.New("connection reset")))
 	if apiErr != errMalformed {

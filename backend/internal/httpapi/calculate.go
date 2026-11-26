@@ -40,14 +40,10 @@ func calculate(r *http.Request) (any, *apiError) {
 	return calculateResponse{Result: result.Value, Exact: result.Exact}, nil
 }
 
-// decodeCalculateRequest checks the request's shape only: one JSON object with
-// exactly the keys "operation" and "operands" (matched case-sensitively, each
-// once), a string operation, and an array of string operands. What the
-// operation and operands mean is calc's business.
-//
-// The whole body is read before parsing, so a body over the limit is always
-// INPUT_TOO_LARGE, wherever its first syntax error is. encoding/json/v2 then
-// rejects duplicate keys and anything after the object.
+// decodeCalculateRequest checks only the shape; calc checks the numbers. It
+// reads the whole body first, so a body over the limit is always
+// INPUT_TOO_LARGE wherever its first syntax error is. encoding/json/v2 rejects
+// duplicate keys and anything after the object.
 func decodeCalculateRequest(body io.Reader) (calculateRequest, *apiError) {
 	data, err := io.ReadAll(body)
 	if err != nil {
@@ -74,14 +70,12 @@ func decodeCalculateRequest(body io.Reader) (calculateRequest, *apiError) {
 	return req, nil
 }
 
-// decodeAs unmarshals raw into v only when raw is the JSON kind that starts
-// with first: '"' for a string, '[' for an array. Checking the first byte
-// also rejects null, which json.Unmarshal would otherwise accept silently.
+// decodeAs checks raw's first byte for the expected kind. That also rejects
+// null, which json.Unmarshal would accept silently.
 func decodeAs(raw jsontext.Value, first byte, v any) bool {
 	return len(raw) > 0 && raw[0] == first && json.Unmarshal(raw, v) == nil
 }
 
-// decodeError explains why the body could not be read.
 func decodeError(err error) *apiError {
 	var tooLarge *http.MaxBytesError
 	if errors.As(err, &tooLarge) {

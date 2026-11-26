@@ -1,12 +1,11 @@
 import type { ErrorCode } from '../api/client'
 import type { Failure } from './reducer'
 
-/** What the display shows in place of the value when a calculation fails. */
+/** Shown in place of the value when a calculation fails. */
 export interface FailureText {
-  /** 'unreachable' gets the no-connection icon; 'error' the warning icon. */
+  /** Picks the icon, no-connection or warning. */
   reason: 'error' | 'unreachable'
   message: string
-  /** The footer line: what to do next. */
   hint: string
 }
 
@@ -19,9 +18,8 @@ const UNREACHABLE: FailureText = {
 }
 
 /**
- * The text for each code the API can send. The codes themselves are never
- * shown. SERVICE_UNAVAILABLE is missing on purpose: nginx sends it when the
- * calculator is down, which is the unreachable state.
+ * The user never sees the codes themselves. SERVICE_UNAVAILABLE is left out
+ * because nginx sends it when the calculator is down, which counts as unreachable.
  */
 export const ERROR_MESSAGES: Record<Exclude<ErrorCode, 'SERVICE_UNAVAILABLE'>, string> = {
   INVALID_REQUEST: 'The calculator couldn’t read that request.',
@@ -40,7 +38,7 @@ export const ERROR_MESSAGES: Record<Exclude<ErrorCode, 'SERVICE_UNAVAILABLE'>, s
 
 const FALLBACK_MESSAGE = 'Something went wrong in the calculator.'
 
-/** An answer that breaks the API's contract: a bug somewhere, not the user's input. */
+/** A contract-breaking answer is a bug, so the hint offers a retry. */
 const INVALID_RESPONSE: FailureText = {
   reason: 'error',
   message: 'Something went wrong.',

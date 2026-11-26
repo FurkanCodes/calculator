@@ -2,16 +2,12 @@ package calc
 
 import "github.com/shopspring/decimal"
 
-// The precision policy: every result keeps Precision significant digits,
-// rounded half to even, in a single rounding step. Nothing else in this
-// package rounds. shopspring's own rounding helpers (Div, Round, Sqrt, Pow)
-// work to a fixed number of decimal places, so small results become zero;
-// rules_test.go bans them here. Each operation computes its result exactly,
-// or keeps the exact remainder of a truncated result, so the one rounding
-// step always knows which way to go.
+// Every result is rounded once, to Precision significant digits, half to even.
+// shopspring's Div, Round, Sqrt and Pow round to fixed decimal places and turn
+// small results into zero, so rules_test.go keeps them out of this package.
+// Each operation keeps an exact value or remainder for that one rounding.
 
-// roundExact applies the policy to a value that was computed exactly, and
-// reports whether the value came through unchanged.
+// roundExact rounds an exactly computed d and reports whether it was unchanged.
 func roundExact(d decimal.Decimal) (decimal.Decimal, bool) {
 	if d.IsZero() {
 		return d, true
@@ -20,10 +16,8 @@ func roundExact(d decimal.Decimal) (decimal.Decimal, bool) {
 	return rounded, rounded.Equal(d)
 }
 
-// divide returns a ÷ b under the policy, and whether the quotient is exact.
-// b must not be zero. Most quotients have no finite decimal form, so the
-// quotient is truncated at Precision digits with QuoRem, and the exact
-// remainder decides the last digit. That keeps it to one rounding step.
+// divide returns a ÷ b for a non-zero b, and whether it is exact. QuoRem
+// truncates at Precision digits and the exact remainder decides the last one.
 func divide(a, b decimal.Decimal) (decimal.Decimal, bool) {
 	if a.IsZero() {
 		return a, true
@@ -31,9 +25,8 @@ func divide(a, b decimal.Decimal) (decimal.Decimal, bool) {
 	negative := a.Sign() != b.Sign()
 	a, b = a.Abs(), b.Abs()
 
-	// The quotient's leading digit sits at magnitude(a) - magnitude(b), or one
-	// place higher. Try the lower position first; if that gives one digit too
-	// many, keep one decimal place fewer.
+	// The leading digit is at magnitude(a) - magnitude(b) or one place higher.
+	// Try the lower one, and drop a place if that gives a digit too many.
 	places := Precision - (magnitude(a) - magnitude(b))
 	q, r := a.QuoRem(b, places)
 	if q.NumDigits() > Precision {
@@ -51,10 +44,9 @@ func divide(a, b decimal.Decimal) (decimal.Decimal, bool) {
 	return q, exact
 }
 
-// roundsUp reports whether half-even rounding adds one unit in the last place
-// to the truncated, non-negative quotient q, where r is the non-zero remainder
-// of dividing by b. The discarded part of the quotient is r / b, which is more
-// than half a unit when 2r > b × unit, and exactly half when they are equal.
+// roundsUp reports whether half-even rounding bumps the truncated, non-negative
+// quotient q. r is the non-zero remainder, and the dropped part r / b is over
+// half a unit when 2r > b × unit.
 func roundsUp(q, r, b decimal.Decimal, places int32) bool {
 	unit := decimal.New(1, -places)
 	switch r.Add(r).Cmp(b.Mul(unit)) {
@@ -67,12 +59,9 @@ func roundsUp(q, r, b decimal.Decimal, places int32) bool {
 	}
 }
 
-// power returns base^n under the policy, and whether the result is exact.
-// n is a whole number with |n| <= maxExponent, and base is not zero if n < 0.
-// base^|n| is computed exactly: with at most Precision significant digits in
-// base, its coefficient has at most 34 000 digits. A positive power is then
-// rounded once; a negative one goes through divide, which rounds 1 ÷ base^|n|
-// once. Calculate rejects a result outside the range.
+// power returns base^n and whether it is exact, for |n| <= maxExponent and a
+// non-zero base when n < 0. base^|n| is exact, at most 34 000 digits, and is
+// rounded once, by divide for n < 0. Calculate checks the range afterwards.
 func power(base decimal.Decimal, n int64) (decimal.Decimal, bool) {
 	if n < 0 {
 		return divide(decimal.New(1, 0), exactPower(base, -n))
@@ -80,9 +69,8 @@ func power(base decimal.Decimal, n int64) (decimal.Decimal, bool) {
 	return roundExact(exactPower(base, n))
 }
 
-// exactPower returns base^k exactly, by repeated squaring; base^0 is 1, 0^0
-// included. base is normalized first, so trailing zeros in an operand such as
-// "1.000" are not multiplied k times.
+// exactPower squares repeatedly, and base^0 is 1 even for 0^0. Normalizing
+// first keeps the trailing zeros of an operand like "1.000" from piling up.
 func exactPower(base decimal.Decimal, k int64) decimal.Decimal {
 	result := decimal.New(1, 0)
 	square := base.Normalize()
@@ -98,16 +86,10 @@ func exactPower(base decimal.Decimal, k int64) decimal.Decimal {
 	}
 }
 
-// squareRoot returns √x under the policy, and whether the root is exact. x
-// must not be negative.
-//
-// x is scaled by an even power of ten, 10^shift, to a whole number N with 67
-// or 68 digits. Then q = ⌊√N⌋ has exactly Precision digits: it is √x
-// truncated to Precision significant digits, scaled by 10^(shift/2). The exact
-// remainder N - q² decides the last digit. √N = q + f with 0 <= f < 1, and
-// f > 1/2 exactly when N > q² + q + 1/4, which for whole numbers means
-// N - q² > q. f is never exactly 1/2, because then N would not be a whole
-// number, so a square root never has a tie to break.
+// squareRoot returns √x for x >= 0, and whether it is exact. x is scaled by an
+// even power of ten to a whole number N of 67 or 68 digits, so q = ⌊√N⌋ is √x
+// truncated to Precision digits. √N - q > 1/2 exactly when N - q² > q, and it
+// is never exactly 1/2 for a whole N, so there is no tie to break.
 func squareRoot(x decimal.Decimal) (decimal.Decimal, bool) {
 	if x.IsZero() {
 		return x, true
@@ -116,9 +98,7 @@ func squareRoot(x decimal.Decimal) (decimal.Decimal, bool) {
 	if shift%2 != 0 {
 		shift-- // keep the shift even; N then has 67
 	}
-	// N is a whole number: x has at most Precision significant digits, and
-	// after the shift the last of them is at least 33 places left of the
-	// decimal point.
+	// x has at most Precision significant digits, so after the shift N is whole.
 	n := x.Shift(shift)
 	root := n.BigInt() // a copy, so computing in place leaves n unchanged
 	root.Sqrt(root)

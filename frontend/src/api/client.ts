@@ -1,12 +1,11 @@
 import { z } from 'zod'
 import { numberSchema } from '../validation/number'
 
-// Zod 4 probes for `new Function` support when the first object schema is
-// built, which the page's CSP (script-src 'self') blocks and the browser
-// reports. This must run before any z.object() call below.
+// Zod 4 probes for `new Function` on the first z.object(), which the CSP
+// blocks and the browser reports. Keep this above every schema.
 z.config({ jitless: true })
 
-/** Relative, because nginx serves the page and the API from one origin. */
+/** Relative: nginx serves the page and the API from one origin. */
 export const CALCULATE_URL = '/api/v1/calculate'
 
 export type BinaryOperation = 'add' | 'subtract' | 'multiply' | 'divide' | 'power' | 'percentage'
@@ -17,11 +16,7 @@ export interface CalculationRequest {
   operands: string[]
 }
 
-/**
- * Every error code the API defines (CLAUDE.md rule 5), including the ones only
- * the optional operations send (NEGATIVE_SQUARE_ROOT, INVALID_EXPONENT) and the
- * one only nginx sends (SERVICE_UNAVAILABLE).
- */
+/** Every code in CLAUDE.md rule 5, including SERVICE_UNAVAILABLE, which only nginx sends. */
 export const ERROR_CODES = [
   'INVALID_REQUEST',
   'INVALID_NUMBER',
@@ -39,12 +34,10 @@ export const ERROR_CODES = [
 ] as const
 export type ErrorCode = (typeof ERROR_CODES)[number]
 
-// Every result is a valid operand (rule 7), so a result that is not one is
-// treated as a broken response.
+// Results follow the operand rules (rule 7), so one that doesn't is a broken response.
 const successSchema = z.object({ result: numberSchema, exact: z.boolean() })
-// A well-formed error with a code this client doesn't know yet (from a newer
-// backend, say) is still the service answering, so it is an error with code
-// null, whose message the UI shows.
+// An unknown code (from a newer backend, say) is still a real answer. It
+// becomes code null and the UI shows the backend's message.
 const errorSchema = z.object({
   error: z.object({
     code: z.union([z.enum(ERROR_CODES), z.string().transform(() => null)]),
@@ -54,14 +47,13 @@ const errorSchema = z.object({
 
 export type CalculateOutcome =
   | { kind: 'success'; result: string; exact: boolean }
-  /** The API answered with its JSON error format. code is null for a code this client doesn't know. */
   | { kind: 'error'; code: ErrorCode | null; message: string }
-  /** A JSON answer that breaks the API's contract, such as a 200 whose result is not a number. */
+  /** JSON that breaks the contract, such as a 200 whose result is not a number. */
   | { kind: 'invalidResponse' }
-  /** No answer, or a body that is not JSON, such as a proxy's HTML error page. */
+  /** No answer, or a body that isn't JSON, such as a proxy's HTML error page. */
   | { kind: 'unreachable' }
 
-/** Sends one calculation. It never throws: every outcome is a value. */
+/** Never throws. Every outcome comes back as a value. */
 export async function calculate(
   request: CalculationRequest,
   signal?: AbortSignal,
@@ -77,9 +69,8 @@ export async function calculate(
     })
     body = await response.json()
   } catch {
-    // fetch rejects on a network failure, json() on a body that is not JSON.
-    // An aborted request also ends here; nobody waits for its outcome, and the
-    // reducer ignores it because it answers a request no longer in flight.
+    // Network failures, non-JSON bodies and aborts all land here. Nobody waits
+    // on an aborted request, and the reducer would ignore its answer anyway.
     return { kind: 'unreachable' }
   }
 

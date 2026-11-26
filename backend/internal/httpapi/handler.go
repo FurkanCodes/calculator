@@ -1,6 +1,5 @@
-// Package httpapi is the calculator's HTTP transport: routing, JSON decoding
-// and encoding, request shape checks, and mapping errors to statuses. It never
-// does arithmetic and never imports the decimal library; that is calc's job.
+// Package httpapi is the calculator's HTTP transport. It does no arithmetic
+// and never imports the decimal library; that stays in calc.
 package httpapi
 
 import (
@@ -10,8 +9,7 @@ import (
 	"path"
 )
 
-// NewHandler returns the service's HTTP handler. Each API request is logged as
-// one line to logger.
+// NewHandler returns the service's handler, which logs each API request to logger.
 func NewHandler(logger *slog.Logger) http.Handler {
 	s := &server{logger: logger}
 	mux := http.NewServeMux()
@@ -27,24 +25,19 @@ type routeDef struct {
 	handler      http.Handler
 }
 
-// routes is every route the service answers. openapi.json describes exactly
-// these, and TestSpecDescribesEveryRoute fails when the two differ.
+// routes must match openapi.json, which TestSpecDescribesEveryRoute checks.
 func (s *server) routes() []routeDef {
 	return []routeDef{
-		// Health checks bypass endpoint, so they are not logged: Compose and
-		// load balancers call them every few seconds.
+		// Not logged, because Compose and load balancers call it every few seconds.
 		{http.MethodGet, "/healthz", http.HandlerFunc(healthz)},
 		{http.MethodPost, "/api/v1/calculate", s.endpoint(calculate)},
-		// The API description is a static document, but it is an API request
-		// like any other, so it goes through endpoint and is logged. A docs
-		// page fetches it once per load, not every few seconds.
+		// Logged like any API request, since a docs page fetches it only once per load.
 		{http.MethodGet, "/api/v1/openapi.json", s.endpoint(openapi)},
 	}
 }
 
-// canonicalPathsOnly answers a path that is not in clean form, such as
-// /api/v1//calculate, with the JSON 404. Go's router would otherwise send a
-// plain-text redirect that skips endpoint, so it would not be logged either.
+// canonicalPathsOnly answers an unclean path like /api/v1//calculate with the
+// JSON 404. Go's router would send a plain-text redirect that is never logged.
 func (s *server) canonicalPathsOnly(next http.Handler) http.Handler {
 	notFound := s.endpoint(notFound)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -56,9 +49,8 @@ func (s *server) canonicalPathsOnly(next http.Handler) http.Handler {
 	})
 }
 
-// route registers h for method on path, together with a JSON 405 for every
-// other method on that path, so no route can be added without one. Go's
-// router would otherwise answer a wrong method in plain text.
+// route also registers a JSON 405 for every other method on path, so no route
+// can miss one. Go's router would answer a wrong method in plain text.
 func (s *server) route(mux *http.ServeMux, method, path string, h http.Handler) {
 	mux.Handle(method+" "+path, h)
 	allow := method

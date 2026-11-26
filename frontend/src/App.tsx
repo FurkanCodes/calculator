@@ -1,12 +1,8 @@
 import { Calculator } from './components/Calculator'
 import { Docs } from './components/Docs'
 
-/**
- * Two columns on wide screens: the docs on the left, the calculator on the
- * right, pinned while the docs scroll. On narrower screens the calculator
- * fills the first screen and the docs follow below it. The calculator comes
- * first in the DOM, so it is also first for screen readers and Tab.
- */
+// The calculator comes first in the DOM so screen readers and Tab reach it
+// first. On wide screens the grid moves it to the right of the docs.
 export function App() {
   return (
     <main className="mx-auto max-w-[1160px] lg:grid lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-8 lg:px-8">

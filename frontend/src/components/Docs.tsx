@@ -1,9 +1,5 @@
 import { ExternalIcon } from './ui/icons'
 
-/**
- * A short guide beside the calculator: what it is, how to use it and how it
- * works, with links to try the API.
- */
 export function Docs() {
   return (
     <article id="about" aria-labelledby="about-title" className="max-w-[68ch] scroll-mt-6 text-[15px] leading-relaxed text-ink">

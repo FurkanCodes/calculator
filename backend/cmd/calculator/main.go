@@ -1,9 +1,7 @@
-// Command calculator runs the calculator HTTP service.
+// Command calculator runs the calculator HTTP service on PORT (default 8081).
 //
-// It listens on PORT (default 8081) and shuts down gracefully on SIGINT or
-// SIGTERM. With -healthcheck it instead calls /healthz on the local server and
-// exits 0 if it is healthy, for container health checks in an image that has
-// no shell or curl.
+// The -healthcheck flag calls /healthz on the local server instead. The
+// container image has no shell or curl, so its health check runs this.
 package main
 
 import (
@@ -27,7 +25,7 @@ const (
 	defaultPort = "8081"
 
 	// shutdownTimeout stays under Docker's 10-second stop grace period, so
-	// in-flight requests finish before Docker would kill the process.
+	// in-flight requests finish before the process is killed.
 	shutdownTimeout = 5 * time.Second
 
 	healthcheckTimeout = 2 * time.Second
@@ -40,7 +38,7 @@ func main() {
 	}
 }
 
-// run holds everything main does, with its inputs passed in so tests can drive it.
+// run takes main's inputs as arguments so tests can drive it.
 func run(ctx context.Context, args []string, getenv func(string) string, stdout io.Writer) error {
 	flags := flag.NewFlagSet("calculator", flag.ContinueOnError)
 	healthcheck := flags.Bool("healthcheck", false, "call /healthz on the local server and exit 0 if it is healthy")
@@ -56,8 +54,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout 
 		return checkHealth(ctx, "http://127.0.0.1:"+port+"/healthz")
 	}
 
-	// After the first signal, restore the default behaviour, so a second
-	// Ctrl+C stops a shutdown that is stuck.
+	// Stop catching signals after the first, so a second Ctrl+C kills a stuck shutdown.
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	context.AfterFunc(ctx, stop)
@@ -70,8 +67,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout 
 	return serve(ctx, newServer(httpapi.NewHandler(logger)), ln, logger)
 }
 
-// newServer sets every timeout, so a slow or idle client cannot hold a
-// connection open indefinitely.
+// newServer sets every timeout so a slow or idle client can't hold a connection open.
 func newServer(handler http.Handler) *http.Server {
 	return &http.Server{
 		Handler:           handler,
@@ -82,8 +78,8 @@ func newServer(handler http.Handler) *http.Server {
 	}
 }
 
-// serve runs srv on ln until ctx is done, then shuts down gracefully: it stops
-// accepting connections and waits up to shutdownTimeout for in-flight requests.
+// serve runs srv until ctx is done, then gives in-flight requests up to
+// shutdownTimeout to finish.
 func serve(ctx context.Context, srv *http.Server, ln net.Listener, logger *slog.Logger) error {
 	serveErr := make(chan error, 1)
 	go func() { serveErr <- srv.Serve(ln) }()
@@ -105,7 +101,6 @@ func serve(ctx context.Context, srv *http.Server, ln net.Listener, logger *slog.
 	return nil
 }
 
-// checkHealth calls url and succeeds only on a 200 response.
 func checkHealth(ctx context.Context, url string) error {
 	ctx, cancel := context.WithTimeout(ctx, healthcheckTimeout)
 	defer cancel()

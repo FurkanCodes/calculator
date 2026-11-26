@@ -3,11 +3,11 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 import reactHooks from 'eslint-plugin-react-hooks'
 import tseslint from 'typescript-eslint'
 
-// Ground rule 1: the frontend does no arithmetic. Numbers stay strings, so the
-// app's code may not turn one into a JavaScript number or compute with it.
+// Ground rule 1. Numbers stay strings, so app code may not turn one into a
+// JavaScript number or compute with it.
 const noArithmetic = 'The frontend does no arithmetic: keep numbers as strings (CLAUDE.md rule 1).'
 const numberGlobals = ['Number', 'parseFloat', 'parseInt', 'Math', 'BigInt']
-// + is left out: it also joins strings.
+// Binary + also joins strings, so it is left out.
 const arithmeticOperators = ['-', '*', '/', '%', '**']
 
 export default defineConfig([

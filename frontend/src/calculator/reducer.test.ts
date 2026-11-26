@@ -13,7 +13,7 @@ import {
   type Typed,
 } from './reducer'
 
-/** A step is an action, or a function of the state, for answering the request in flight. */
+/** A function step answers the request in flight. */
 type Step = Action | ((state: State) => State)
 
 function run(state: State, ...steps: Step[]): State {
@@ -32,7 +32,7 @@ function answer(outcome: CalculateOutcome): Step {
 
 const succeed = (text: string, exact = true) => answer({ kind: 'success', result: text, exact })
 
-/** Types a number key by key: digits, '.' and '-' for the sign key. */
+/** '-' stands for the sign key. */
 function type(text: string): Action[] {
   return [...text].map((c): Action => {
     if (c === '.') return { type: 'decimalPoint' }
@@ -61,7 +61,7 @@ const divisionByZero: CalculateOutcome = {
   message: 'Cannot divide by zero.',
 }
 
-// One state of each kind, for the rules that hold in every state.
+// One of each state, for the rules that hold in all of them.
 const enteringFirst: State = { status: 'EnteringFirst', first: typed('12') }
 const operatorChosen: State = { status: 'OperatorChosen', first: typed('12'), operator: 'add' }
 const enteringSecond: State = {

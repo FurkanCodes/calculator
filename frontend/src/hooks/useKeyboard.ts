@@ -2,11 +2,7 @@ import { useEffect } from 'react'
 import type { Key } from '../calculator/reducer'
 import { isCalculatorKey, keyAction } from '../calculator/keys'
 
-/**
- * Sends the keyboard map's actions while the calculator is mounted. It listens
- * on window, so keys work wherever focus is, except where isCalculatorKey
- * leaves them to another input or control.
- */
+/** Listens on window so keys work wherever focus is. isCalculatorKey decides which to leave alone. */
 export function useKeyboard(press: (action: Key) => void) {
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

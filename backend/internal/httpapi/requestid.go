@@ -10,14 +10,11 @@ import (
 
 type requestIDKey struct{}
 
-// validRequestID limits which incoming IDs are kept, so a client cannot put
-// arbitrary text into the logs.
+// validRequestID limits incoming IDs so a client can't put arbitrary text in the logs.
 var validRequestID = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
 
-// withRequestID gives every request an ID, set in the X-Request-ID response
-// header and in the request context for logging. A well-formed incoming
-// X-Request-ID, such as one set by a proxy, is kept so that log lines can be
-// matched across services.
+// withRequestID sets X-Request-ID on the response and in the context. A valid
+// incoming ID, such as a proxy's, is kept so logs match across services.
 func withRequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.Header.Get("X-Request-ID")

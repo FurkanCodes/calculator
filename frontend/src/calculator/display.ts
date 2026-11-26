@@ -1,8 +1,7 @@
 import type { Calculation, Operator, Shown, State } from './reducer'
 import { type FailureText, failureText } from './messages'
 
-// Everything the display shows, derived from the reducer's state. The
-// components read only this model, never the state itself.
+// Derived from the reducer's state. Components read only this model.
 
 export const OPERATOR_SYMBOLS: Record<Operator, string> = {
   add: '+',
@@ -16,22 +15,17 @@ export type ValueModel =
   | {
       kind: 'number'
       text: string
-      /** False marks a rounded result from the backend. */
+      /** False when the backend rounded the result. */
       exact: boolean
-      /** True while a request is in flight: the number is the one it was sent with. */
+      /** A request is in flight. The number is the one it was sent with. */
       dimmed: boolean
-      /** A finished result, which the Copy button offers. */
       copyable: boolean
-      /**
-       * Which end stays in view when the text is too long to fit: the end of
-       * a typed number, where digits are added, or the leading digits of a result.
-       */
+      /** The end kept in view on overflow. Typed numbers grow at the end; results read from the start. */
       anchor: 'start' | 'end'
     }
   | ({ kind: 'failure' } & FailureText)
 
 export interface DisplayModel {
-  /** The line above the value, such as `50 +` or `1 ÷ 3 =`. Empty when there is nothing to show. */
   expression: string
   value: ValueModel
 }
@@ -68,15 +62,15 @@ function number(shown: Shown, { dimmed = false, copyable = false } = {}): ValueM
   }
 }
 
-/** The first number and its operator. The reducer has already dropped a typed trailing point from it. */
+/** The reducer has already dropped a typed trailing point from first. */
 function pending(first: Shown, operator: Operator): string {
   return `${first.text} ${OPERATOR_SYMBOLS[operator]}`
 }
 
 /**
- * The calculation in the user's terms: `50 + 10`, `√9`, `10%`, or `50 + 10%`
- * for % on a second number. It ends in `=` when its result is shown; when an
- * operator or % started it, the result goes back into the next entry instead.
+ * The calculation as the user typed it, such as `50 + 10%`. It ends in `=`
+ * when the result is the answer. After an operator or %, the result goes
+ * into the next entry.
  */
 export function describe({ request, target }: Calculation): string {
   const [a = '', b = ''] = request.operands

@@ -9,8 +9,8 @@ if (root === null) {
   throw new Error('index.html has no #root element')
 }
 
-// nginx's Content Security Policy allows no inline styles, so Base UI must not
-// add its own <style> element. index.css has the rules it would have added.
+// The CSP blocks inline styles, so Base UI must not add its own <style>.
+// index.css carries the rules it would have added.
 createRoot(root).render(
   <StrictMode>
     <CSPProvider disableStyleElements>

@@ -1,5 +1,4 @@
-// Small line icons, drawn on a 24-unit grid in the current text colour. They
-// are decorative: the text next to each one says the same thing.
+// aria-hidden because the text next to each icon already says the same thing.
 
 interface IconProps {
   className?: string

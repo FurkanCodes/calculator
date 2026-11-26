@@ -143,4 +143,8 @@ Backend expected values come from Python's `decimal` module (`backend/internal/c
 
 ## AI Usage
 
-Built with Claude Code; I read, reviewed and tested the code. The prompts are in [PROMPTS.md](PROMPTS.md), with a short summary first.
+Built with Claude Code; I read, reviewed and tested the code. Three files in the repository root show how the work was steered:
+
+- **[CLAUDE.md](CLAUDE.md)**: the project's standing instructions, which Claude Code loads at the start of every session. It sets the scope, the architecture and ten ground rules, such as "no floats where numbers pass through" and "every failure is a named error with one status". Each rule has a test or lint check behind it, so a change that breaks one fails CI. Code comments such as "CLAUDE.md rule 5" point back to these rules.
+- **[stories.md](stories.md)**: the build checklist, written before the code. It lists every deliverable in build order, with the brief's requirements marked, and an item was ticked only once it was built and verified.
+- **[PROMPTS.md](PROMPTS.md)**: the prompts, with a short summary first.

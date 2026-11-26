@@ -44,8 +44,8 @@ func TestSharedNumberCases(t *testing.T) {
 	}
 }
 
-// FuzzNumberPattern checks what parseOperand relies on when it ignores
-// NewFromString's error: every string numberPattern accepts also parses.
+// parseOperand ignores NewFromString's error, which is only safe if every
+// string numberPattern accepts also parses. FuzzNumberPattern checks that.
 func FuzzNumberPattern(f *testing.F) {
 	for _, s := range []string{"0", "-12.5", "007", "0.001", "1." + zeros(254)} {
 		f.Add(s)

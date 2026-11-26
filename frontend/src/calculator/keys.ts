@@ -1,16 +1,14 @@
 import type { Digit, Key } from './reducer'
 
-// The calculator's keys: one table for the keypad and the keyboard map
-// (docs/frontend-design.md).
+// One table drives both the keypad and the keyboard map.
 
 export type KeyKind = 'digit' | 'function' | 'operator' | 'equals'
 
 export interface KeySpec {
-  /** What the key shows. */
   label: string
-  /** Shown raised after the label: the y of xʸ. */
+  /** The y of xʸ. */
   superscript?: string
-  /** The accessible name, for keys whose label is a symbol rather than a word or digit. */
+  /** Accessible name, for keys labelled with a symbol. */
   name?: string
   key: Key
   kind: KeyKind
@@ -20,10 +18,7 @@ export interface KeySpec {
 
 const digit = (d: Digit): KeySpec => ({ label: d, key: { type: 'digit', digit: d }, kind: 'digit', keyboard: [d] })
 
-/**
- * The keypad, row by row. There is no Backspace: the reducer has no action
- * that deletes one character.
- */
+/** Row by row. No Backspace, because the reducer has no action that deletes a character. */
 export const KEYS: readonly KeySpec[] = [
   { label: 'C', name: 'Clear', key: { type: 'clear' }, kind: 'function', keyboard: ['Escape', 'Delete'] },
   { label: '√', name: 'Square root', key: { type: 'squareRoot' }, kind: 'function' },
@@ -57,16 +52,11 @@ export const KEYS: readonly KeySpec[] = [
 
 const BY_KEYBOARD = new Map(KEYS.flatMap((spec) => (spec.keyboard ?? []).map((name) => [name, spec.key] as const)))
 
-/** The key a `KeyboardEvent.key` presses, or null. */
 export function keyAction(key: string): Key | null {
   return BY_KEYBOARD.get(key) ?? null
 }
 
-/**
- * Whether a keydown belongs to the calculator. It leaves alone keys typed
- * into another input, browser and system shortcuts, and Enter on a focused
- * button or link, which activates it.
- */
+/** Enter on a focused button or link is left to the browser, which activates it. */
 export function isCalculatorKey(event: KeyboardEvent): boolean {
   if (event.defaultPrevented || event.isComposing) {
     return false

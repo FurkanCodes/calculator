@@ -2,8 +2,7 @@ package calc
 
 import "fmt"
 
-// Code identifies why a calculation was rejected. The HTTP layer maps each
-// code to exactly one status.
+// Code says why a calculation was rejected. Each one maps to one HTTP status.
 type Code string
 
 const (

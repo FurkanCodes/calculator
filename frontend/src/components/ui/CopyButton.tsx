@@ -3,7 +3,7 @@ import { CheckIcon, CopyIcon } from './icons'
 
 type CopyStatus = 'idle' | 'copied' | 'selected'
 
-/** How long "Copied" or "Selected" shows before the button reads "Copy" again. */
+/** How long "Copied" or "Selected" stays before the label goes back to "Copy". */
 export const CONFIRM_MS = 2000
 
 const ANNOUNCEMENTS: Record<CopyStatus, string> = {
@@ -19,9 +19,9 @@ interface CopyButtonProps {
 }
 
 /**
- * Copies the full value. Without clipboard access (an insecure origin, or a
- * denied permission) it selects the value instead, so the user can copy it.
- * Give it a key per value, so a new value starts at "Copy".
+ * Without clipboard access (an insecure origin or a denied permission) it
+ * selects the value so the user can copy it. Key it by value so a new value
+ * starts at "Copy".
  */
 export function CopyButton({ text, fallbackRef }: CopyButtonProps) {
   const [status, setStatus] = useState<CopyStatus>('idle')
@@ -40,8 +40,7 @@ export function CopyButton({ text, fallbackRef }: CopyButtonProps) {
 
   const copy = async () => {
     try {
-      // navigator.clipboard is undefined outside a secure context, which
-      // throws here and takes the fallback too.
+      // navigator.clipboard is undefined on an insecure origin, so this throws into the fallback.
       await navigator.clipboard.writeText(text)
       setStatus('copied')
     } catch {

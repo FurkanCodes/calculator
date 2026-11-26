@@ -4,21 +4,17 @@ import { initialState, type Key, reducer, type State } from '../calculator/reduc
 
 export interface Calculator {
   state: State
-  /** Sends one key press to the reducer. Stable across renders. */
+  /** Stable across renders. */
   press: (key: Key) => void
 }
 
 /**
- * The calculator's state, plus the one side effect the reducer asks for:
- * while the state is Calculating, its request is in flight. Leaving
- * Calculating (Clear) or unmounting aborts it. Each answer names its request,
- * and the reducer settles only the one in flight, so a late answer to a
- * cleared request cannot settle a newer one.
+ * Runs the one side effect the reducer asks for. While the state is
+ * Calculating its request is in flight, and Clear or unmounting aborts it.
  */
 export function useCalculator(): Calculator {
   const [state, dispatch] = useReducer(reducer, initialState)
-  // The reducer makes a new request object each time it enters Calculating,
-  // and keeps the same one while keys wait for the answer, so this runs once per request.
+  // The request object changes only on entering Calculating, so the effect runs once per request.
   const request = state.status === 'Calculating' ? state.request : null
 
   useEffect(() => {
@@ -34,7 +30,7 @@ export function useCalculator(): Calculator {
     }
   }, [request])
 
-  // dispatch, typed so that callers can send keys but not 'settled'.
+  // Typed so callers can send keys but not 'settled'.
   const press: (key: Key) => void = dispatch
   return { state, press }
 }

@@ -1,25 +1,21 @@
 import { ScrollArea } from '@base-ui/react/scroll-area'
 import { type RefObject, useLayoutEffect, useRef } from 'react'
 
-/** The value's font sizes in px, largest first. The last is the smallest. */
+/** In px, largest first. */
 const SIZES = [40, 36, 32, 28, 26] as const
 
 interface ValueTextProps {
   text: string
-  /** The end kept in view when the text doesn't fit: see ValueModel. */
   anchor: 'start' | 'end'
   dimmed: boolean
-  /** The element holding the text. The Copy button selects it when the clipboard fails. */
+  /** The Copy button selects this when the clipboard fails. */
   textRef: RefObject<HTMLSpanElement | null>
 }
 
 /**
- * The value, right-aligned at the largest size that fits the card. Too long
- * for the smallest size, it scrolls horizontally. The size is measured, not
- * estimated from the number of characters, which keeps arithmetic out of the
- * frontend (rule 1) and holds for whichever font has loaded. Base UI's ScrollArea makes
- * the viewport focusable only when it scrolls, and marks which edges hide
- * digits, so the fade shows only where digits are hidden.
+ * The size is measured instead of estimated from the character count. That
+ * keeps arithmetic out of the frontend (rule 1) and works for whichever font
+ * has loaded. ScrollArea makes the viewport focusable only when it scrolls.
  */
 export function ValueText({ text, anchor, dimmed, textRef }: ValueTextProps) {
   const rootRef = useRef<HTMLDivElement>(null)
@@ -37,8 +33,7 @@ export function ValueText({ text, anchor, dimmed, textRef }: ValueTextProps) {
       if (!active) {
         return
       }
-      // Try each size, largest first, and keep the first that fits. When none
-      // fits, the last one tried, the smallest, stays, and the text scrolls.
+      // When nothing fits, the smallest size stays set and the text scrolls.
       SIZES.some((px) => {
         span.style.fontSize = `${px}px`
         return span.offsetWidth <= root.clientWidth
@@ -54,8 +49,8 @@ export function ValueText({ text, anchor, dimmed, textRef }: ValueTextProps) {
         active = false
       }
     }
-    // Refit when the card's width changes. Fitting changes the height, so
-    // reacting to every resize would loop.
+    // Refit on width changes only. Fitting changes the height, so reacting to
+    // every resize would loop.
     let width = root.clientWidth
     const observer = new ResizeObserver(() => {
       if (root.clientWidth !== width) {

@@ -7,7 +7,7 @@ import (
 	"github.com/FurkanCodes/calculator/backend/internal/calc"
 )
 
-// Error codes that belong to the transport. The rest come from calc.
+// Error codes the transport owns. The rest come from calc.
 const (
 	codeInvalidRequest   = "INVALID_REQUEST"
 	codeNotFound         = "NOT_FOUND"
@@ -15,9 +15,8 @@ const (
 	codeInternal         = "INTERNAL_ERROR"
 )
 
-// statuses is the README's error table: every code the API can send, and the
-// one HTTP status that code always has. TestEveryCalcCodeHasAStatus reads
-// calc's source, so a new calc code fails the tests until it is added here.
+// statuses matches the README's error table. TestEveryCalcCodeHasAStatus
+// reads calc's source and fails until every calc code is listed here.
 var statuses = map[string]int{
 	codeInvalidRequest:                http.StatusBadRequest,
 	string(calc.InvalidNumber):        http.StatusBadRequest,
@@ -33,8 +32,7 @@ var statuses = map[string]int{
 	codeInternal:                      http.StatusInternalServerError,
 }
 
-// apiError is a failed request. Its status comes from statuses, so a code can
-// never be sent with a different status.
+// apiError has no status field, so a code always gets its status from statuses.
 type apiError struct {
 	code    string
 	message string
@@ -50,14 +48,12 @@ type errorBody struct {
 	Message string `json:"message"`
 }
 
-// internalError reports a bug. The client gets a generic message; the cause
-// goes to the log.
+// internalError reports a bug. The cause goes to the log, never the client.
 func internalError(cause error) *apiError {
 	return &apiError{code: codeInternal, message: "An unexpected error occurred.", cause: cause}
 }
 
-// fromCalc converts an error from calc.Calculate, which only returns
-// *calc.Error. Anything else is a bug.
+// fromCalc treats anything other than a *calc.Error as a bug.
 func fromCalc(err error) *apiError {
 	var calcErr *calc.Error
 	if !errors.As(err, &calcErr) {

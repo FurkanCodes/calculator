@@ -1,6 +1,5 @@
-// Package calc runs calculator operations on decimal strings under one
-// precision policy (see precision.go). It is pure: no I/O, logging, clock or
-// mutable state, so the same input always gives the same output.
+// Package calc runs calculator operations on decimal strings. It has no I/O,
+// logging, clock or state. The rounding rules are in precision.go.
 package calc
 
 import (
@@ -13,9 +12,9 @@ import (
 
 // Result is a successful calculation.
 type Result struct {
-	// Value is a plain decimal string that is itself a valid operand.
+	// Value is a plain decimal string, valid as an operand.
 	Value string
-	// Exact is false when the precision policy rounded the result.
+	// Exact is false when the result was rounded.
 	Exact bool
 }
 
@@ -24,9 +23,8 @@ type operation struct {
 	apply    func(args []decimal.Decimal) (value decimal.Decimal, exact bool, err error)
 }
 
-// operations is the full set of supported operations. Adding one means adding
-// a row here and its tests. A new error Code also needs its HTTP status in
-// httpapi; a test there fails until it has one.
+// Adding an operation means a row here plus tests. A new error Code also needs
+// an HTTP status in httpapi, and a test there fails until it has one.
 var operations = map[string]operation{
 	"add":        exactBinary(decimal.Decimal.Add),
 	"subtract":   exactBinary(decimal.Decimal.Sub),
@@ -37,8 +35,7 @@ var operations = map[string]operation{
 	"sqrt":       {operands: 1, apply: applySqrt},
 }
 
-// exactBinary adapts a two-operand operation that shopspring computes exactly.
-// The policy then rounds the exact result once.
+// exactBinary wraps an operation shopspring computes exactly, then rounds once.
 func exactBinary(f func(a, b decimal.Decimal) decimal.Decimal) operation {
 	return operation{operands: 2, apply: func(args []decimal.Decimal) (decimal.Decimal, bool, error) {
 		value, exact := roundExact(f(args[0], args[1]))
@@ -46,8 +43,7 @@ func exactBinary(f func(a, b decimal.Decimal) decimal.Decimal) operation {
 	}}
 }
 
-// percentOf is a% of b, which is a × b ÷ 100. Dividing by 100 only moves the
-// decimal point, so the result is exact.
+// percentOf is a% of b. Dividing by 100 only moves the point, so it stays exact.
 func percentOf(a, b decimal.Decimal) decimal.Decimal {
 	return a.Mul(b).Shift(-2)
 }
@@ -60,8 +56,6 @@ func applyDivide(args []decimal.Decimal) (decimal.Decimal, bool, error) {
 	return value, exact, nil
 }
 
-// applyPower raises the first operand to the second, which must be a whole
-// number from -maxExponent to maxExponent.
 func applyPower(args []decimal.Decimal) (decimal.Decimal, bool, error) {
 	base := args[0]
 	n, ok := wholeExponent(args[1])
@@ -76,14 +70,12 @@ func applyPower(args []decimal.Decimal) (decimal.Decimal, bool, error) {
 	return value, exact, nil
 }
 
-// wholeExponent returns d as an int64 if it is a whole number from
-// -maxExponent to maxExponent. The check is on the value, so "1.0" is 1 and
-// "-0" is 0, the same as for any other operand.
+// wholeExponent compares values, so "1.0" is 1 and "-0" is 0, as for any operand.
 func wholeExponent(d decimal.Decimal) (int64, bool) {
 	if d.Abs().Cmp(decimal.New(maxExponent, 0)) > 0 {
 		return 0, false
 	}
-	n := d.IntPart() // drops any fraction; the comparison below rejects one
+	n := d.IntPart()
 	return n, decimal.New(n, 0).Equal(d)
 }
 
@@ -95,14 +87,12 @@ func applySqrt(args []decimal.Decimal) (decimal.Decimal, bool, error) {
 	return value, exact, nil
 }
 
-// Operations returns the names of every supported operation, sorted. The
-// slice is new on every call, so changing it cannot change the table.
+// Operations returns the supported operation names, sorted, in a new slice.
 func Operations() []string {
 	return slices.Sorted(maps.Keys(operations))
 }
 
-// Calculate runs the named operation on the operand strings. Every error it
-// returns is an *Error.
+// Calculate runs the named operation. Every error it returns is an *Error.
 func Calculate(name string, operands []string) (Result, error) {
 	op, ok := operations[name]
 	if !ok {

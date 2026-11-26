@@ -6,33 +6,27 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// Limits on every operand and every result. README.md documents the same values.
+// README.md documents the same limits, so change both together.
 const (
 	// Precision is the number of significant digits a result keeps.
 	Precision = 34
 
-	// MaxLength caps an operand string before any parsing work is done.
+	// MaxLength is an operand's limit in bytes, checked before any parsing.
 	MaxLength = 256
 
-	// maxMagnitude bounds the range: a number is zero, or has
-	// 1e-maxMagnitude <= |x| < 1e+maxMagnitude.
 	maxMagnitude = 100
 
-	// maxExponent bounds the exponent of power: a whole number from
-	// -maxExponent to maxExponent.
+	// maxExponent bounds |n| in power.
 	maxExponent = 1000
 )
 
-// NumberPattern is a plain decimal: an optional minus sign, ASCII digits and
-// an optional fraction. It has no plus sign, exponent, spaces or bare point.
-// It is exported, with MaxLength, so the API description can be checked
-// against it.
+// NumberPattern is the plain decimal format every operand must match. It is
+// exported, like MaxLength, so a test can check the API description against it.
 const NumberPattern = `^-?[0-9]+(\.[0-9]+)?$`
 
 var numberPattern = regexp.MustCompile(NumberPattern)
 
-// parseOperand converts an operand string to a decimal and enforces the number
-// rules. position is the operand's 1-based position, for error messages.
+// parseOperand applies the number rules. position is 1-based, for error messages.
 func parseOperand(position int, s string) (decimal.Decimal, error) {
 	if len(s) > MaxLength {
 		return decimal.Decimal{}, newError(InputTooLarge,
@@ -42,8 +36,7 @@ func parseOperand(position int, s string) (decimal.Decimal, error) {
 		return decimal.Decimal{}, newError(InvalidNumber,
 			`Operand %d is not a valid number. Use a plain decimal such as "-12.5".`, position)
 	}
-	// NewFromString accepts every string numberPattern does; FuzzNumberPattern
-	// checks that, so the error is always nil here.
+	// FuzzNumberPattern checks that NewFromString accepts whatever numberPattern does.
 	d, _ := decimal.NewFromString(s)
 	if significantDigits(d) > Precision {
 		return decimal.Decimal{}, newError(InputTooLarge,
@@ -56,13 +49,13 @@ func parseOperand(position int, s string) (decimal.Decimal, error) {
 	return d, nil
 }
 
-// magnitude is the position of a non-zero number's leading digit relative to
-// the decimal point: 123.4 has magnitude 3, 1 has 1, and 0.05 has -1.
+// magnitude is where a non-zero d's leading digit sits relative to the point.
+// 123.4 has 3, 1 has 1 and 0.05 has -1.
 func magnitude(d decimal.Decimal) int32 {
 	return int32(d.NumDigits()) + d.Exponent()
 }
 
-// significantDigits counts the digits from the first non-zero digit to the last.
+// significantDigits ignores leading and trailing zeros, so "1.000" has one.
 func significantDigits(d decimal.Decimal) int {
 	return d.Normalize().NumDigits()
 }

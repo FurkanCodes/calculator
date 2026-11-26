@@ -13,7 +13,6 @@ import (
 	"testing"
 )
 
-// parseSources parses the non-test Go files matching pattern.
 func parseSources(t *testing.T, fset *token.FileSet, pattern string, mode parser.Mode) []*ast.File {
 	t.Helper()
 	paths, err := filepath.Glob(pattern)
@@ -37,8 +36,8 @@ func parseSources(t *testing.T, fset *token.FileSet, pattern string, mode parser
 	return files
 }
 
-// TestTransportDoesNoArithmetic enforces the package boundary: httpapi handles
-// HTTP and leaves every number to calc, so it never imports the decimal library.
+// httpapi leaves every number to calc, so it must never import the decimal
+// library.
 func TestTransportDoesNoArithmetic(t *testing.T) {
 	for _, file := range parseSources(t, token.NewFileSet(), "*.go", parser.ImportsOnly) {
 		for _, imp := range file.Imports {
@@ -49,9 +48,8 @@ func TestTransportDoesNoArithmetic(t *testing.T) {
 	}
 }
 
-// TestEveryCalcCodeHasAStatus type-checks calc's source and collects every
-// constant of type calc.Code, however it is written, so a code added there
-// fails here until statuses has an entry for it.
+// TestEveryCalcCodeHasAStatus finds calc.Code constants by type, however they
+// are written, so a new code fails here until statuses maps it.
 func TestEveryCalcCodeHasAStatus(t *testing.T) {
 	fset := token.NewFileSet()
 	files := parseSources(t, fset, filepath.Join("..", "calc", "*.go"), 0)

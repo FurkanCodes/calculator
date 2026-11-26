@@ -15,22 +15,18 @@ import (
 )
 
 // allowedAPIs is every name calc may use from other packages, methods
-// included. It enforces ground rules 1, 3 and 4: no binary floating point, no
-// shopspring function that rounds or formats on its own terms (Div, Avg,
-// Round, Sqrt, the formatting globals and the rest), nothing that does I/O,
-// reads the clock or logs, and no method that changes a value in place (such
-// as regexp's Longest). Adding a name here is a deliberate decision, not a
-// side effect.
+// included. It backs ground rules 1, 3 and 4, so it leaves out floats,
+// shopspring calls that round or format by their own rules (Div, Round, Sqrt
+// and so on), I/O, the clock, logging, and methods that mutate in place.
+// Add a name only on purpose.
 var allowedAPIs = map[string][]string{
 	"fmt":  {"Sprintf"},
 	"maps": {"Keys"},
 	"math/big": {
 		"Bit",
-		// Int.Sqrt is the exact integer square root ⌊√x⌋, not shopspring's
-		// rounding Sqrt: squareRoot keeps the remainder and rounds once
-		// itself. It panics only on a negative x, which applySqrt rejects
-		// first. It writes into its receiver, and squareRoot only calls it on
-		// the fresh copy BigInt returns, so no decimal's value changes.
+		// Int.Sqrt is the exact integer root ⌊√x⌋, so squareRoot can round
+		// once itself. applySqrt rejects negative x, the only panic. It
+		// writes into its receiver, which is always a fresh copy from BigInt.
 		"Sqrt",
 	},
 	"regexp":  {"MatchString", "MustCompile"},
@@ -39,25 +35,22 @@ var allowedAPIs = map[string][]string{
 	"github.com/shopspring/decimal": {
 		"Abs", "Add", "BigInt", "Cmp", "Decimal", "Equal", "Exponent", "IsZero", "Mul", "Neg",
 		"New", "NewFromString", "Normalize", "NumDigits", "QuoRem", "RoundBank", "Shift", "Sign", "String", "Sub",
-		// IntPart drops a fraction, but wholeExponent calls it only on values
-		// of at most maxExponent and rejects any value it changed. It cannot panic.
+		// IntPart drops any fraction, but wholeExponent only uses it on values
+		// up to maxExponent and rejects any it changed. It cannot panic.
 		"IntPart",
 		// NewFromBigInt copies an integer exactly. It cannot round or panic.
 		"NewFromBigInt",
 	},
 }
 
-// allowedGlobals lists calc's package-level variables. Both are set once at
-// start-up and only read after that. A new one is a deliberate decision.
+// allowedGlobals are set once at start-up and only read after that.
 var allowedGlobals = []string{"numberPattern", "operations"}
 
-// violations type-checks files as one package and reports every break of the
-// rules: an import or API outside allowedAPIs, a value of float or complex
-// type (including untyped literals such as 0.5), a package-level variable
-// outside allowedGlobals, or a direct write to one. A direct write is an
-// assignment, ++ or --, delete or clear, or taking its address. Writes through
-// an alias (m := operations; m["x"] = ...) are not caught; allowedGlobals
-// keeps the variables that could be aliased few and reviewed.
+// violations type-checks files as one package and reports any API outside
+// allowedAPIs, any float or complex value (untyped literals like 0.5 too), and
+// any package-level variable that is not allowed or is written directly.
+// Writes through an alias (m := operations; m["x"] = ...) slip past, which is
+// why allowedGlobals stays short.
 func violations(fset *token.FileSet, files []*ast.File) ([]string, error) {
 	info := &types.Info{
 		Uses:  map[*ast.Ident]types.Object{},
@@ -187,8 +180,8 @@ func TestCalcFollowsGroundRules(t *testing.T) {
 	}
 }
 
-// TestViolationsCatchesBrokenRules makes sure the check above cannot pass by
-// finding nothing: a sample that breaks each rule must be reported for each.
+// TestViolationsCatchesBrokenRules stops the check above from passing just
+// because it finds nothing. Every break in the sample must be reported.
 func TestViolationsCatchesBrokenRules(t *testing.T) {
 	const src = `package sample
 

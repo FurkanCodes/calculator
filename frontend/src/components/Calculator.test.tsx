@@ -34,7 +34,6 @@ function deferredFetch() {
   return calls
 }
 
-/** Clicks keypad keys by their accessible names. */
 function click(...names: string[]) {
   for (const name of names) {
     fireEvent.click(screen.getByRole('button', { name }))
@@ -50,7 +49,6 @@ function type(...keys: string[]) {
 const display = () => screen.getByRole('region', { name: 'Display' })
 const value = () => screen.getByTestId('value').textContent
 const expression = () => screen.getByTestId('expression').textContent
-/** The live region that holds the value or the error. */
 const output = () => display().querySelector('[role="status"][aria-live="polite"]')
 const sentBody = (fetchMock: ReturnType<typeof answer>, call = 0) => fetchMock.mock.calls[call]?.[1].body
 
@@ -321,7 +319,7 @@ describe('the display', () => {
     const line = screen.getByTestId('expression')
     expect(line.textContent).toBe(`${long} × 10 =`)
     expect(line.title).toBe(`${long} × 10 =`)
-    // Runs right to left, so the ellipsis cuts the start and the = stays in view.
+    // Right to left, so the ellipsis cuts the start and = stays in view.
     expect(line.getAttribute('dir')).toBe('rtl')
     expect(line.className).toContain('truncate')
   })

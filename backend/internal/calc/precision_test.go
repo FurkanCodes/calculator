@@ -7,12 +7,9 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// FuzzPower checks power on any input: it never panics, every error is an
-// *Error, and for valid operands the result, its exact flag and any refusal
-// match referencePower and the range rule. Every result is a valid operand.
-// It also undoes exact results where an exact inverse exists: an exact
-// reciprocal taken again gives back the base, and the square root of an exact
-// square gives back |base|.
+// FuzzPower compares power with referencePower and the range rule. Where an
+// exact result has an exact inverse it undoes it too. A reciprocal taken twice
+// gives the base back, and the root of a square gives |base|.
 func FuzzPower(f *testing.F) {
 	seeds := []struct{ base, exponent string }{
 		{"2", "10"}, {"1.5", "2"}, {"-3", "2"}, {"-2", "3"}, {"0.25", "-1"}, {"3", "-1"}, {"0", "-1"},
@@ -72,12 +69,9 @@ func FuzzPower(f *testing.F) {
 	})
 }
 
-// FuzzSqrt checks sqrt on any input: it never panics, every error is an
-// *Error, and every result is a valid operand. A rounded root r is not
-// exactly √x, so squaring it does not give x back. What is true is that r is
-// within half a unit in its last place of √x, so x lies between the squares
-// of r minus and plus that half unit. And the result is exact exactly when
-// r² is x, in which case power(r, 2) gives x back.
+// FuzzSqrt can't square a rounded root and expect x back. It checks that the
+// root r is within half a unit in the last place of √x, and that the result
+// is marked exact only when r² is x.
 func FuzzSqrt(f *testing.F) {
 	for _, s := range []string{
 		"0", "-0", "2", "2.25", "0.1", "-4", "x", tenPowMinus99, maxDigits, maxDigits + zeros(66),

@@ -20,15 +20,10 @@ var (
 )
 
 func TestCalculate(t *testing.T) {
-	// Expected values come from Python's decimal module set to 34 digits and
-	// half-even rounding: an independent implementation of the same policy.
-	// For power, Python computes the exact power at a higher precision and
-	// rounds it once (dividing 1 by it for a negative exponent). To recompute
-	// this table and TestCalculateErrors' codes, run this from this directory:
-	//
-	//	python3 testdata/reference.py
-	//
-	// It reads both tables from this file and reports any row that differs.
+	// Expected values come from Python's decimal module (34 digits, half to
+	// even), which rounds the same way but shares no code with ours. Power is
+	// computed exactly, then rounded once. To recheck this table and
+	// TestCalculateErrors, run python3 testdata/reference.py from this directory.
 	tests := []struct {
 		name      string
 		operation string
@@ -73,7 +68,6 @@ func TestCalculate(t *testing.T) {
 			Result{"1524157875323883675049535156256667" + zeros(33), false}},
 		{"smallest supported result", "multiply", []string{tenPowMinus99, "0.1"}, Result{"0." + zeros(99) + "1", true}},
 
-		// percentage
 		{"percent of a whole number", "percentage", []string{"50", "200"}, Result{"100", true}},
 		{"fractional percent", "percentage", []string{"12.5", "80"}, Result{"10", true}},
 		{"negative percent", "percentage", []string{"-10", "50"}, Result{"-5", true}},
@@ -89,7 +83,6 @@ func TestCalculate(t *testing.T) {
 		{"percentage reaches 1e-100", "percentage", []string{tenPowMinus99, "10"}, Result{"0." + zeros(99) + "1", true}},
 		{"percentage just under 1e100", "percentage", []string{maxDigits + zeros(66), "100"}, Result{maxDigits + zeros(66), true}},
 
-		// power
 		{"whole power", "power", []string{"2", "10"}, Result{"1024", true}},
 		{"decimal base", "power", []string{"1.5", "2"}, Result{"2.25", true}},
 		{"negative base, odd exponent", "power", []string{"-2", "3"}, Result{"-8", true}},
@@ -127,7 +120,6 @@ func TestCalculate(t *testing.T) {
 		{"negative power tie keeps even digit", "power", []string{"2", "-50"}, Result{"0." + zeros(15) + "8881784197001252323389053344726562", false}},
 		{"exponent 1000.0", "power", []string{"1", "1000.0"}, Result{"1", true}},
 
-		// sqrt
 		{"square root of zero", "sqrt", []string{"0"}, Result{"0", true}},
 		{"square root of negative zero", "sqrt", []string{"-0"}, Result{"0", true}},
 		{"square root of one", "sqrt", []string{"1"}, Result{"1", true}},
@@ -158,7 +150,7 @@ func TestCalculate(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("Calculate(%q, %q) = %+v, want %+v", tt.operation, tt.operands, got, tt.want)
 			}
-			// Ground rule: every result is a valid operand.
+			// Ground rule 7: any result can be sent back as an operand.
 			if _, err := parseOperand(1, got.Value); err != nil {
 				t.Errorf("result %q is not a valid operand: %v", got.Value, err)
 			}
@@ -189,12 +181,10 @@ func TestCalculateErrors(t *testing.T) {
 		{"quotient reaches 1e100", "divide", []string{tenPow99, "0.1"}, OutOfRange},
 		{"product below 1e-100", "multiply", []string{tenPowMinus99, "0.01"}, OutOfRange},
 
-		// percentage
 		{"percentage below 1e-100", "percentage", []string{tenPowMinus99, "1"}, OutOfRange},
 		{"percentage reaches 1e100", "percentage", []string{tenPow99, "1000"}, OutOfRange},
 		{"percentage with one operand", "percentage", []string{"4"}, WrongOperandCount},
 
-		// power
 		{"reciprocal of the smallest operand", "power", []string{"0." + zeros(99) + "1", "-1"}, OutOfRange},
 		{"power reaches 1e100", "power", []string{"10", "100"}, OutOfRange},
 		{"power rounds up to 1e100", "power", []string{"183298.0710832435936412899930401846", "19"}, OutOfRange},
@@ -217,7 +207,6 @@ func TestCalculateErrors(t *testing.T) {
 		{"zero to the -1000", "power", []string{"-0.00", "-1000"}, DivisionByZero},
 		{"invalid exponent number", "power", []string{"2", "1e3"}, InvalidNumber},
 
-		// sqrt
 		{"negative square root", "sqrt", []string{"-1"}, NegativeSquareRoot},
 		{"tiny negative square root", "sqrt", []string{"-0." + zeros(99) + "1"}, NegativeSquareRoot},
 		{"sqrt with two operands", "sqrt", []string{"4", "2"}, WrongOperandCount},
@@ -265,15 +254,12 @@ func TestErrorMessages(t *testing.T) {
 	}
 }
 
-// inverses maps each operation that has an inverse to the one that undoes it.
 var inverses = map[string]string{
 	"add": "subtract", "subtract": "add", "multiply": "divide", "divide": "multiply",
 }
 
-// reference computes name(a, b) exactly with math/big, an implementation
-// independent of shopspring, then rounds it with roundReference. It returns
-// the rounded value and whether rounding changed it. b must not be zero for
-// divide.
+// reference computes name(a, b) exactly with math/big, which shares no code
+// with shopspring, and rounds it once. b must not be zero for divide.
 func reference(name, a, b string) (decimal.Decimal, bool) {
 	x, _ := new(big.Rat).SetString(a)
 	y, _ := new(big.Rat).SetString(b)
@@ -289,11 +275,9 @@ func reference(name, a, b string) (decimal.Decimal, bool) {
 	return roundReference(exact)
 }
 
-// referencePower computes a^b like reference: exactly with math/big, as
-// num^|n| / den^|n| for a = num/den, inverted for a negative n, then rounded
-// with roundReference. When Calculate must refuse instead, it returns that
-// error code: b is not a whole number from -maxExponent to maxExponent, or a
-// is zero and b negative. a and b must be valid operands.
+// referencePower is reference for power. It also returns the error code
+// Calculate must give when b is not a whole number within maxExponent of zero,
+// or a is zero and b negative. a and b must be valid operands.
 func referencePower(a, b string) (decimal.Decimal, bool, Code) {
 	x, _ := new(big.Rat).SetString(a)
 	y, _ := new(big.Rat).SetString(b)
@@ -314,15 +298,15 @@ func referencePower(a, b string) (decimal.Decimal, bool, Code) {
 	return value, exact, ""
 }
 
-// roundReference rounds an exact value to Precision significant digits, half
-// to even, by integer division, and reports whether rounding left it unchanged.
+// roundReference rounds to Precision significant digits, half to even, using
+// only integer division. The bool is true when nothing was rounded off.
 func roundReference(exact *big.Rat) (decimal.Decimal, bool) {
 	if exact.Sign() == 0 {
 		return decimal.Zero, true
 	}
 
-	// Find k so that 10^(Precision-1) <= |exact| × 10^k < 10^Precision, then
-	// q = |exact| × 10^k truncated is the result's Precision digits.
+	// Find k with 10^(Precision-1) <= |exact| × 10^k < 10^Precision. The
+	// integer part of |exact| × 10^k is then the result's digits.
 	abs := new(big.Rat).Abs(exact)
 	pow10 := func(n int) *big.Int { return new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(n)), nil) }
 	k := Precision - (len(abs.Num().String()) - len(abs.Denom().String()))
@@ -354,12 +338,8 @@ func roundReference(exact *big.Rat) (decimal.Decimal, bool) {
 	}
 }
 
-// FuzzCalculate checks properties that hold for any input: Calculate never
-// panics, every error is an *Error, every result is a valid operand and
-// matches the math/big reference in value and exactness, and an exact result
-// undone by the inverse operation gives back the first operand. It fuzzes the
-// operations with an inverse, plus percentage, which has no inverse and so
-// skips that last check. power and sqrt have their own fuzz tests.
+// FuzzCalculate compares Calculate with the math/big reference and checks that
+// the inverse operation undoes any exact result. power and sqrt have their own.
 func FuzzCalculate(f *testing.F) {
 	names := append(slices.Sorted(maps.Keys(inverses)), "percentage")
 	seeds := []struct {

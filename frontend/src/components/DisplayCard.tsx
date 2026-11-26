@@ -4,7 +4,6 @@ import { CopyButton } from './ui/CopyButton'
 import { AlertIcon, NoConnectionIcon } from './ui/icons'
 import { ValueText } from './ui/ValueText'
 
-/** The display card: expression line, value, and a footer row for its status. */
 export function DisplayCard({ model }: { model: DisplayModel }) {
   const { expression, value } = model
   const textRef = useRef<HTMLSpanElement>(null)
@@ -42,10 +41,8 @@ export function DisplayCard({ model }: { model: DisplayModel }) {
 }
 
 /**
- * One line. A long expression is cut at its start, so its end (the operator,
- * or =) stays in view: the paragraph runs right to left, which puts the
- * ellipsis on the left, and the text inside stays left to right. The full
- * expression is in the DOM, and in the title for a pointer.
+ * dir="rtl" puts the ellipsis on the left, so a long expression keeps its
+ * operator or = in view. The inner span keeps the text itself left to right.
  */
 function Expression({ text }: { text: string }) {
   return (

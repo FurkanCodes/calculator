@@ -1,17 +1,14 @@
-# BuildKit reads <Dockerfile name>.dockerignore next to the Dockerfile, so this
-# applies to frontend/Dockerfile only, whose context is the repository root.
-# Paths are relative to that root. It is an allowlist: everything is left out
-# except the frontend and the shared number cases its tests import, so the
-# context stays small and new top-level files never reach it.
+# BuildKit applies this to frontend/Dockerfile only. Paths are from the repo
+# root. Everything is left out unless listed, so new top-level files stay out.
 *
 !frontend/
 !testdata/numbers.json
 
-# Built or installed on the host; the image installs and builds its own.
+# The image installs and builds its own.
 frontend/node_modules/
 frontend/dist/
 frontend/coverage/
-# Local settings, which may hold secrets.
+# May hold secrets.
 frontend/.env*
 # Read by BuildKit itself, never copied.
 frontend/Dockerfile

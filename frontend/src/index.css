@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
-/* The "Ledger" tokens from docs/frontend-design.md. Every text colour passes
-   4.5:1 on the surface it sits on. There is no dark theme in the design. */
+/* "Ledger" tokens from docs/frontend-design.md. Text colours pass 4.5:1 on
+   the surfaces they sit on. */
 @theme {
   --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
@@ -36,7 +36,6 @@
   }
 }
 
-/* The 2 px accent focus ring, offset 2 px. */
 @utility focus-ring {
   &:focus-visible {
     outline: 2px solid var(--color-accent);
@@ -44,7 +43,6 @@
   }
 }
 
-/* Text links in the docs panel: accent, underlined, with the focus ring. */
 @utility link {
   color: var(--color-accent);
   text-decoration-line: underline;
@@ -60,9 +58,8 @@
   }
 }
 
-/* Base UI's ScrollArea hides the native scrollbar with these rules, normally in
-   a <style> element it adds itself. main.tsx turns that element off, because
-   nginx's Content Security Policy blocks inline styles, so they live here. */
+/* Base UI normally adds these from its own <style> element, which the CSP
+   blocks, so main.tsx turns it off and the rules live here. */
 .base-ui-disable-scrollbar {
   scrollbar-width: none;
 }
@@ -70,8 +67,7 @@
   display: none;
 }
 
-/* A value too long for the card fades out at the edge where digits are
-   hidden. The data attributes come from Base UI's ScrollArea viewport. */
+/* Fades whichever edge hides digits. Base UI's ScrollArea sets these attributes. */
 .value-viewport[data-overflow-x-end] {
   mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
 }
@@ -82,8 +78,7 @@
   mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
 }
 
-/* While a request is in flight the previous value dims, and the footer shows
-   "Calculating…". Both wait 300 ms, so a fast answer doesn't flicker. */
+/* The 300 ms delay here and in appear-late keeps a fast answer from flickering. */
 .value-dimmed {
   color: var(--color-dimmed);
   transition: color 150ms ease-out 300ms;

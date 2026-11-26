@@ -3,11 +3,10 @@ import { useRef } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ValueText } from './ValueText'
 
-// jsdom does no layout, so these tests give elements the sizes a browser
-// would: the text is 0.6 em wide per character (IBM Plex Mono), and the card
-// is `cardWidth` px wide.
+// jsdom does no layout, so the tests fake it. Each character is 0.6 em wide,
+// as in IBM Plex Mono, and the card is `cardWidth` px wide.
 let cardWidth = 248
-/** The callbacks of every ResizeObserver still connected, Base UI's included. */
+/** Every connected ResizeObserver callback, Base UI's included. */
 const observers = new Set<() => void>()
 const resize = () => {
   for (const callback of observers) {

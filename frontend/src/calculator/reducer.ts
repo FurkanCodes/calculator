@@ -1,58 +1,46 @@
 import type { BinaryOperation, CalculateOutcome, CalculationRequest } from '../api/client'
 import { isValidNumber } from '../validation/number'
 
-// The calculator's state machine (docs/frontend-design.md). The reducer is
-// pure: it does no arithmetic and no fetching. Entering Calculating is the
-// signal to send state.request; useCalculator does that and dispatches
-// 'settled' with the outcome.
+// The state machine from docs/frontend-design.md. It stays pure and does no
+// arithmetic. Entering Calculating tells useCalculator to send state.request,
+// and the hook dispatches 'settled' with the outcome.
 
-/** The operator keys. percentage has its own key, %, with its own rules. */
+/** percentage is left out because % has its own rules. */
 export type Operator = Exclude<BinaryOperation, 'percentage'>
 
 export type Digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9'
 
-/**
- * A number on the display. A typed number is edited key by key, and may end
- * in a decimal point while it is typed. A result came from the backend; its
- * exact flag is false when the backend rounded it.
- */
+/** A typed number may end in a decimal point mid-entry. A result is exact unless the backend rounded it. */
 export type Shown =
   | { origin: 'typed'; text: string }
   | { origin: 'result'; text: string; exact: boolean }
 export type Typed = Extract<Shown, { origin: 'typed' }>
 export type Result = Extract<Shown, { origin: 'result' }>
 
-/** A request that finished without a result. */
 export type Failure = Exclude<CalculateOutcome, { kind: 'success' }>
 
-/** Where a successful result goes once its request returns. */
 export type ResultTarget =
-  /** After =, √, or % on the first number: show it. */
+  /** After =, √, or % on the first number. */
   | { to: 'ShowingResult' }
-  /** After an operator: the result is the first number, with that operator chosen. */
+  /** After an operator. The result becomes the first number. */
   | { to: 'OperatorChosen'; operator: Operator }
-  /** After % on the second number: the result replaces the second number. */
+  /** After % on the second number, which the result replaces. */
   | { to: 'EnteringSecond'; first: Shown; operator: Operator }
 
-/** A request and where its result goes. */
 export interface Calculation {
   request: CalculationRequest
   target: ResultTarget
 }
 
 /**
- * ShowingResult and Error keep the calculation they answer, so the display
- * can show it (`1 ÷ 3 =`). A result changed by the sign key is a new state
- * without one: the calculation no longer describes it.
+ * ShowingResult and Error keep their calculation for the expression line.
+ * Negating a result drops it, because it no longer describes the number.
  */
 export type State =
   | { status: 'EnteringFirst'; first: Typed }
   | { status: 'OperatorChosen'; first: Shown; operator: Operator }
   | { status: 'EnteringSecond'; first: Shown; operator: Operator; second: Shown }
-  /**
-   * shown is the number on the display when the request was sent, as it was
-   * sent: a typed 5. is 5. pending holds the keys pressed since, in order.
-   */
+  /** shown is the number as sent (a typed 5. is 5). pending is the keys pressed since. */
   | ({ status: 'Calculating'; shown: Shown; pending?: readonly Key[] } & Calculation)
   | { status: 'ShowingResult'; result: Result; calculation?: Calculation }
   | { status: 'Error'; failure: Failure; calculation: Calculation }
@@ -66,10 +54,9 @@ export type Action =
   | { type: 'percent' }
   | { type: 'equals' }
   | { type: 'clear' }
-  /** Sent by useCalculator when a request returns. It settles only the request it names. */
+  /** Sent by useCalculator when a request returns. */
   | { type: 'settled'; request: CalculationRequest; outcome: CalculateOutcome }
 
-/** The actions a person can send: every key on the keypad. */
 export type Key = Exclude<Action, { type: 'settled' }>
 
 const ZERO: Typed = { origin: 'typed', text: '0' }
@@ -92,19 +79,19 @@ export function reducer(state: State, action: Action): State {
       return enteringSecond(state, action)
     case 'Calculating':
       if (action.type === 'settled') {
-        // The answer to any other request is ignored.
+        // Matched by identity, so a late answer to a cleared request is ignored.
         return action.request === state.request ? settle(state, action.outcome) : state
       }
-      // A key pressed before the answer waits for it, so typing fast gives
-      // the same result as typing slowly. The request stays the same object.
+      // Keys wait for the answer, so typing fast gives the same result as typing
+      // slowly. Keep the request object, or useCalculator would send it again.
       return { ...state, pending: [...(state.pending ?? []), action] }
     case 'Error':
-      // An entry key starts a new first number; everything else is ignored.
+      // Apart from Clear, only an entry key leaves the error, by starting a new number.
       return isEntryKey(action) ? showFirst(applyEntryKey(ZERO, action)) : state
   }
 }
 
-/** EnteringFirst and ShowingResult: the shown number is the first operand. */
+/** Shared by EnteringFirst and ShowingResult, where the shown number is the first operand. */
 function onFirstNumber(state: State, shown: Shown, action: Action): State {
   if (isEntryKey(action)) {
     const next = applyEntryKey(shown, action)
@@ -134,7 +121,7 @@ function operatorChosen(state: Extract<State, { status: 'OperatorChosen' }>, act
     return { status: 'EnteringSecond', first, operator, second: applyEntryKey(ZERO, action) }
   }
   if (action.type === 'operator') {
-    // A second operator key corrects the first one.
+    // Another operator replaces the first.
     return { ...state, operator: action.operator }
   }
   return state
@@ -171,9 +158,8 @@ function enteringSecond(state: Extract<State, { status: 'EnteringSecond' }>, act
 }
 
 /**
- * The state after the answer, with the keys pressed while waiting applied in
- * order. After a failure they are dropped: they were meant for a number that
- * never came, and the error stays on the display.
+ * Replays the keys pressed while waiting. After a failure they are dropped,
+ * since the number they were meant for never came.
  */
 function settle(state: Extract<State, { status: 'Calculating' }>, outcome: CalculateOutcome): State {
   const next = answered(state, outcome)
@@ -203,7 +189,6 @@ function calculating(shown: Shown, request: CalculationRequest, target: ResultTa
   return { status: 'Calculating', request, target, shown }
 }
 
-/** The state for a first number: EnteringFirst while typed, ShowingResult for a result. */
 function showFirst(shown: Shown): State {
   return shown.origin === 'typed'
     ? { status: 'EnteringFirst', first: shown }
@@ -215,12 +200,9 @@ function isEntryKey(action: Action): action is EntryKey {
 }
 
 /**
- * Applies a digit, decimal point or sign key to the shown number, and returns
- * the same object when the key changes nothing.
- * - On a result, a digit or the decimal point starts a new typed number from
- *   0, and the sign key negates the result and keeps its exact flag.
- * - On a typed number, the key edits it. A key that would make it an invalid
- *   operand, such as a second decimal point or a 257th character, is ignored.
+ * Returns the same object when the key changes nothing. On a result, ± negates
+ * it and keeps its exact flag, and any other key starts a new number. A key
+ * that would make a typed number invalid, such as a second point, is ignored.
  */
 export function applyEntryKey(shown: Shown, key: EntryKey): Shown {
   if (shown.origin === 'result') {
@@ -253,7 +235,7 @@ function editTyped(text: string, key: EntryKey): string {
   return isValidNumber(next.endsWith('.') ? `${next}0` : next) ? next : text
 }
 
-/** Negates a result by toggling its minus sign. Zero has no sign, so it stays as it is. */
+/** Zero has no sign, so it stays as it is. */
 function negate(text: string): string {
   if (!/[1-9]/.test(text)) {
     return text
@@ -266,7 +248,7 @@ function toggleMinus(text: string): string {
   return text.startsWith('-') ? text.slice(1) : `-${text}`
 }
 
-/** The shown number as an operand: a typed 5. is sent as 5. */
+/** A typed 5. is sent as 5. */
 function finished(shown: Shown): Shown {
   return shown.origin === 'typed' && shown.text.endsWith('.')
     ? { origin: 'typed', text: shown.text.slice(0, -1) }

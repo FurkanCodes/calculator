@@ -1,8 +1,7 @@
 package httpapi
 
-// Contract tests for openapi.json. The document is written by hand, so these
-// tests are what keep it true: each one compares part of it with the code it
-// describes, and fails when either changes without the other.
+// openapi.json is written by hand. These tests compare it with the code it
+// describes, so neither can change without the other.
 
 import (
 	"bytes"
@@ -23,8 +22,8 @@ import (
 
 type object = map[string]any
 
-// loadSpec parses the embedded document. Numbers stay json.Number, so an
-// example such as [0.1, 0.2] is sent exactly as written.
+// loadSpec keeps numbers as json.Number so an example like [0.1, 0.2] is sent
+// exactly as written.
 func loadSpec(t *testing.T) object {
 	t.Helper()
 	dec := json.NewDecoder(bytes.NewReader(openapiSpec))
@@ -39,8 +38,7 @@ func loadSpec(t *testing.T) object {
 	return spec
 }
 
-// get walks keys from v, following any $ref it meets on the way, and fails
-// the test when a key is missing or a value is not an object.
+// get walks keys from v through any $ref, failing on a missing key or non-object.
 func get(t *testing.T, spec object, v any, keys ...string) any {
 	t.Helper()
 	for _, key := range keys {
@@ -59,7 +57,6 @@ func getObject(t *testing.T, spec object, v any, keys ...string) object {
 	return deref(t, spec, get(t, spec, v, keys...))
 }
 
-// deref returns v as an object, following $ref pointers within the document.
 func deref(t *testing.T, spec object, v any) object {
 	t.Helper()
 	m, ok := v.(object)
@@ -96,7 +93,6 @@ func stringList(t *testing.T, v any) []string {
 	return out
 }
 
-// specOperation is one method on one path in the document.
 type specOperation struct {
 	method, path string
 	op           object
@@ -115,7 +111,6 @@ func specOperations(t *testing.T, spec object) []specOperation {
 	return ops
 }
 
-// specResponse is one response in the document, wherever it is defined.
 type specResponse struct {
 	where    string // for messages
 	status   int    // 0 for a shared response under components.responses
@@ -142,11 +137,9 @@ func specResponses(t *testing.T, spec object) []specResponse {
 	return out
 }
 
-// errorSchemaStatus matches the per-status error schemas: Error400, Error404...
 var errorSchemaStatus = regexp.MustCompile(`^Error([0-9]{3})$`)
 
-// documentedCodes reads the ErrorNNN schemas and returns each code with the
-// status its schema is named for.
+// documentedCodes maps each code in an ErrorNNN schema to NNN.
 func documentedCodes(t *testing.T, spec object) map[string]int {
 	t.Helper()
 	codes := map[string]int{}
@@ -167,8 +160,8 @@ func documentedCodes(t *testing.T, spec object) map[string]int {
 	return codes
 }
 
-// codeEnum returns the error.code enum of an ErrorNNN schema, which is
-// allOf the shared Error schema and a narrowing of its code.
+// codeEnum returns an ErrorNNN schema's code enum. The schema is allOf the
+// shared Error schema and a narrower code.
 func codeEnum(t *testing.T, spec object, schema any) []string {
 	t.Helper()
 	var codes []string
@@ -185,7 +178,7 @@ func codeEnum(t *testing.T, spec object, schema any) []string {
 	return codes
 }
 
-// The one code the calculator never sends: nginx in the web container does.
+// nginx in the web container sends this code. The calculator never does.
 const codeServiceUnavailable = "SERVICE_UNAVAILABLE"
 
 func TestSpecIsOpenAPI31(t *testing.T) {
@@ -209,8 +202,7 @@ func TestSpecOperationsMatchCalc(t *testing.T) {
 	}
 }
 
-// Every operation has a request example with a 200 response example, so each
-// operation's documented operand count is run through the handler.
+// Without a success example, an operation's operand count would go untested.
 func TestSpecHasASuccessExampleForEveryOperation(t *testing.T) {
 	spec := loadSpec(t)
 	calculate := get(t, spec, spec, "paths", "/api/v1/calculate", "post")
@@ -265,9 +257,8 @@ func TestSpecErrorCodesMatchStatuses(t *testing.T) {
 	}
 }
 
-// Every response has the request ID header, every error response uses the
-// error schema for its status, and every error example's code is one that
-// status can carry.
+// Every response must carry X-Request-ID too, and each error example's code
+// must be one its status can send.
 func TestSpecResponsesUseTheirStatusSchema(t *testing.T) {
 	spec := loadSpec(t)
 	documented := documentedCodes(t, spec)
@@ -309,7 +300,6 @@ func TestSpecResponsesUseTheirStatusSchema(t *testing.T) {
 	}
 }
 
-// The document describes exactly the routes the handler registers.
 func TestSpecDescribesEveryRoute(t *testing.T) {
 	var registered, described []string
 	for _, r := range (&server{}).routes() {
@@ -336,7 +326,7 @@ type exchange struct {
 }
 
 // specExchanges pairs each request example with the response example of the
-// same name, and gives a body-less request to each operation that takes none.
+// same name. An operation with no request body gets one empty request.
 func specExchanges(t *testing.T, spec object) []exchange {
 	t.Helper()
 	var out []exchange
@@ -379,8 +369,6 @@ func specExchanges(t *testing.T, spec object) []exchange {
 	return out
 }
 
-// Every example request is sent to the real handler, and must get exactly the
-// documented status, content type and body.
 func TestSpecExamplesAreWhatTheServiceSends(t *testing.T) {
 	spec := loadSpec(t)
 	for _, ex := range specExchanges(t, spec) {
@@ -391,8 +379,8 @@ func TestSpecExamplesAreWhatTheServiceSends(t *testing.T) {
 	}
 }
 
-// The response examples no request example produces: each is produced here.
-// TestEveryResponseExampleIsChecked makes sure none is left out.
+// No request example produces these responses, so each is triggered directly.
+// TestEveryResponseExampleIsChecked fails if one is missed.
 func TestSpecResponseOnlyExamples(t *testing.T) {
 	spec := loadSpec(t)
 	example := func(keys ...string) any {
@@ -418,8 +406,8 @@ func TestSpecResponseOnlyExamples(t *testing.T) {
 	assertDocumentedResponse(t, rec, http.StatusInternalServerError, sharedExample("InternalError", "internalError"), spec)
 }
 
-// responseOnly names the response examples TestSpecResponseOnlyExamples
-// produces, plus nginx's, which only the Compose smoke test can produce.
+// responseOnly lists the examples TestSpecResponseOnlyExamples produces, plus
+// nginx's, which only the Compose smoke test can produce.
 var responseOnly = []string{"bodyTooLarge", "unknownPath", "getCalculate", "internalError", "serviceUnavailable"}
 
 func TestEveryResponseExampleIsChecked(t *testing.T) {
@@ -438,8 +426,7 @@ func TestEveryResponseExampleIsChecked(t *testing.T) {
 	}
 }
 
-// assertDocumentedResponse checks a response against the document: its status,
-// content type, request ID header and body. A nil want is the document itself.
+// assertDocumentedResponse treats a nil want as openapi.json itself.
 func assertDocumentedResponse(t *testing.T, rec *httptest.ResponseRecorder, status int, want any, spec object) {
 	t.Helper()
 	resp := rec.Result()
@@ -459,7 +446,7 @@ func assertDocumentedResponse(t *testing.T, rec *httptest.ResponseRecorder, stat
 		t.Fatalf("body is not JSON: %v", err)
 	}
 	if want == nil {
-		want = any(spec) // the document itself
+		want = any(spec)
 	}
 	if !reflect.DeepEqual(got, want) {
 		gotJSON, _ := json.Marshal(got)

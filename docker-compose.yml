@@ -1,32 +1,27 @@
 services:
   web:
-    # The repository root is the context because the frontend's type check
-    # reads testdata/numbers.json (see frontend/Dockerfile and its
-    # Dockerfile.dockerignore).
+    # The repo root, because the frontend type check reads testdata/numbers.json.
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    # The only published port. Bound to localhost, so the app is reachable from
-    # this machine and not from the network; use "8080:8080" to open it up.
-    # WEB_PORT in .env (see .env.example) changes the port on this machine.
+    # The only way in, and only from this machine. WEB_PORT in .env sets the host port.
     ports:
       - "127.0.0.1:${WEB_PORT:-8080}:8080"
     depends_on:
       calculator:
         condition: service_healthy
     healthcheck:
-      # nginx's own /healthz; it does not depend on the calculator.
+      # nginx's own /healthz, which does not call the calculator.
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
       interval: 10s
       timeout: 3s
       retries: 3
       start_period: 5s
-    # nginx stops on SIGQUIT and finishes in-flight requests. Its proxy
-    # timeouts (2 s to connect, 5 s to answer) keep those within this window.
+    # nginx's proxy timeouts (2 s + 5 s) let in-flight requests finish in time.
     stop_grace_period: 10s
     restart: unless-stopped
     read_only: true
-    # nginx's pid file and temp directories, the only paths it writes.
+    # The only place nginx writes, for its pid file and temp files.
     tmpfs:
       - /tmp
     cap_drop: [ALL]
@@ -36,7 +31,7 @@ services:
     build: ./backend
     environment:
       PORT: "8081"
-    # No ports: only the web container reaches it, over the Compose network.
+    # No ports. Only web reaches it, over the Compose network.
     healthcheck:
       # The image has no shell or curl, so the binary checks itself.
       test: ["CMD", "/calculator", "-healthcheck"]
@@ -44,7 +39,7 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
-    # The service's own shutdown limit is 5 seconds, inside this window.
+    # The service shuts down within 5 seconds.
     stop_grace_period: 10s
     restart: unless-stopped
     read_only: true

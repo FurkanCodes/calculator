@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# Smoke test for the running Compose stack: the page, one calculation and one
-# error through nginx, then the JSON 503 with the calculator stopped.
-# Run from the repo root after `docker compose up -d --build --wait`.
+# Checks the running stack through nginx, then stops the calculator and expects
+# the JSON 503. Run from the repo root after `docker compose up -d --build --wait`.
 set -euo pipefail
 
 base="${BASE_URL:-http://localhost:8080}"

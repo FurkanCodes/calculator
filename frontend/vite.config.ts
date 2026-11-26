@@ -5,16 +5,14 @@ import { loadEnv } from 'vite'
 import { defineConfig } from 'vitest/config'
 
 export default defineConfig(({ mode }) => {
-  // Settings from the repository's one .env file (see .env.example at the
-  // root); a variable set in the shell wins. The '' prefix loads names without
-  // VITE_, which the app's code never sees: these are for this config only.
+  // The repo's one .env (see .env.example). The '' prefix loads names without
+  // VITE_, which stay in this config and never reach the app.
   const env = loadEnv(mode, resolve(import.meta.dirname, '..'), '')
   return {
     plugins: [react(), tailwindcss()],
     server: {
-      // In development the Go service runs on its own port. In production nginx
-      // serves the page and /api/* from one origin, so the client uses relative URLs.
-      // API_PROXY_TARGET points the dev server at a backend on another port.
+      // The client uses relative /api URLs, which nginx serves in production.
+      // In development they go to the Go service at API_PROXY_TARGET.
       proxy: { '/api': env.API_PROXY_TARGET || 'http://127.0.0.1:8081' },
     },
     test: {
