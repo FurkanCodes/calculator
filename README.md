@@ -71,6 +71,7 @@ Operands and results are JSON strings, never JSON numbers. Browsers and most JSO
 A valid number:
 
 - is a plain decimal: an optional `-`, then digits, then an optional fraction (`-12.5`, `0.001`, `42`). It has no `+`, no exponent (`1e5`), no spaces, and no leading or trailing dot (`.5`, `5.`).
+- is at most 256 characters long.
 - has at most 34 significant digits, counted from the first non-zero digit to the last.
 - is zero, or has a magnitude of at least 10⁻¹⁰⁰ and less than 10¹⁰⁰.
 
@@ -94,11 +95,11 @@ Clients should act on `code`. The `message` is meant for people reading logs or 
 | `UNSUPPORTED_OPERATION` | 400    | The operation is not in the table above                               |
 | `NOT_FOUND`             | 404    | The path does not exist, such as `/api/v2/calculate`                  |
 | `METHOD_NOT_ALLOWED`    | 405    | The wrong method for the path, such as `GET /api/v1/calculate`        |
-| `INPUT_TOO_LARGE`       | 413    | The body is over 4 KiB, or an operand is over the number limits       |
+| `INPUT_TOO_LARGE`       | 413    | The body is over 4 KiB, or an operand is over 256 characters or 34 significant digits |
 | `DIVISION_BY_ZERO`      | 422    | Dividing by zero, or raising zero to a negative power                 |
 | `NEGATIVE_SQUARE_ROOT`  | 422    | The square root of a negative number                                  |
 | `INVALID_EXPONENT`      | 422    | A `power` exponent that is not an integer, or is outside −1000 to 1000 |
-| `OUT_OF_RANGE`          | 422    | A result outside the number limits                                    |
+| `OUT_OF_RANGE`          | 422    | An operand or the result is non-zero and outside 10⁻¹⁰⁰ to 10¹⁰⁰       |
 | `INTERNAL_ERROR`        | 500    | A bug. The service logs it with the request ID                        |
 | `SERVICE_UNAVAILABLE`   | 503    | Sent by nginx when the calculator is down or does not answer in time  |
 
@@ -138,7 +139,7 @@ Returns `200 {"status":"ok"}` while the process is running. The web container do
 
 ## Running without Docker
 
-Backend, which requires Go 1.27 or newer:
+Backend, which requires Go 1.27.4 or newer:
 
 ```sh
 cd backend
@@ -172,7 +173,7 @@ GitHub Actions runs both suites on every push and pull request, and uploads both
 
 What the tests cover:
 
-- `internal/calc`: table-driven tests for every operation and every error code, rounding ties, the 34-digit boundary and the number limits. A separate test fails if the package uses a float type or a shopspring function that rounds on its own.
+- `internal/calc`: table-driven tests for every operation and every error code, including rounding ties, the 34-digit boundary and the number limits. Expected values come from Python's `decimal` module, an independent implementation of the same rounding rules. A fuzz test checks that any input either returns a named error or a result that is a valid operand, and that an exact result run through the inverse operation gives back the first operand. A separate test fails if the package uses a float type or a shopspring function that rounds on its own.
 - `internal/httpapi`: `httptest` tests for each status and error code, unknown fields, JSON numbers, oversized bodies, and the request ID header.
 - `cmd/calculator`: the server starts, and on shutdown it finishes a request that is still in flight.
 - Frontend: the reducer, the Zod schemas run against the shared number cases, the API client with a stubbed `fetch`, and component tests with React Testing Library.

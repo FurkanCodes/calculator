@@ -63,9 +63,10 @@ Each rule needs a test or a lint check behind it. A rule with no check is not do
    - Domain errors are logged at info level with their code as a field, never at error level.
 6. **Inputs have limits, defined in one place, each with a test.**
    - Request body: 4 KiB.
-   - A number is a plain decimal matching `^-?\d+(\.\d+)?$`: no `+`, exponent, spaces, or leading or trailing dot.
-   - At most 34 significant digits, counted from the first non-zero digit to the last.
-   - Zero, or a magnitude of at least 10⁻¹⁰⁰ and less than 10¹⁰⁰. A result outside this is `OUT_OF_RANGE`.
+   - An operand is at most 256 characters. Longer is `INPUT_TOO_LARGE`.
+   - A number is a plain decimal matching `^-?[0-9]+(\.[0-9]+)?$`: no `+`, exponent, spaces, or leading or trailing dot. Anything else is `INVALID_NUMBER`.
+   - At most 34 significant digits, counted from the first non-zero digit to the last. More is `INPUT_TOO_LARGE`.
+   - Zero, or a magnitude of at least 10⁻¹⁰⁰ and less than 10¹⁰⁰. An operand or result outside this is `OUT_OF_RANGE`.
 7. **Every result is a valid operand.** Results follow the same number rules as inputs, so any result can be sent back. A test feeds results back in as operands.
 8. **One number format on both sides.** `testdata/numbers.json` lists accepted and rejected number strings. The Go tests and the Vitest tests both run against it.
 9. **Stateless and replaceable.** `GET /healthz` reports that the process is up and is not logged. On SIGTERM the server stops accepting connections and finishes in-flight requests within 5 seconds, which is under Docker's 10-second stop grace period. The Dockerfile uses an exec-form `ENTRYPOINT` so the signal reaches the Go process.
