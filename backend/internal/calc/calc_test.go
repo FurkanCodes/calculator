@@ -267,9 +267,9 @@ var inverses = map[string]string{
 }
 
 // reference computes name(a, b) exactly with math/big, an implementation
-// independent of shopspring, then rounds it to Precision significant digits,
-// half to even, by integer division. It returns the rounded value and whether
-// rounding changed it. b must not be zero for divide.
+// independent of shopspring, then rounds it with roundReference. It returns
+// the rounded value and whether rounding changed it. b must not be zero for
+// divide.
 func reference(name, a, b string) (decimal.Decimal, bool) {
 	x, _ := new(big.Rat).SetString(a)
 	y, _ := new(big.Rat).SetString(b)
@@ -282,6 +282,37 @@ func reference(name, a, b string) (decimal.Decimal, bool) {
 			return new(big.Rat).Quo(new(big.Rat).Mul(x, y), big.NewRat(100, 1))
 		},
 	}[name](x, y)
+	return roundReference(exact)
+}
+
+// referencePower computes a^b like reference: exactly with math/big, as
+// num^|n| / den^|n| for a = num/den, inverted for a negative n, then rounded
+// with roundReference. When Calculate must refuse instead, it returns that
+// error code: b is not a whole number from -maxExponent to maxExponent, or a
+// is zero and b negative. a and b must be valid operands.
+func referencePower(a, b string) (decimal.Decimal, bool, Code) {
+	x, _ := new(big.Rat).SetString(a)
+	y, _ := new(big.Rat).SetString(b)
+	if !y.IsInt() || y.Num().CmpAbs(big.NewInt(maxExponent)) > 0 {
+		return decimal.Decimal{}, false, InvalidExponent
+	}
+	n := y.Num().Int64()
+	if x.Sign() == 0 && n < 0 {
+		return decimal.Decimal{}, false, DivisionByZero
+	}
+	k := big.NewInt(n)
+	k.Abs(k)
+	num, den := new(big.Int).Exp(x.Num(), k, nil), new(big.Int).Exp(x.Denom(), k, nil)
+	if n < 0 {
+		num, den = den, num
+	}
+	value, exact := roundReference(new(big.Rat).SetFrac(num, den))
+	return value, exact, ""
+}
+
+// roundReference rounds an exact value to Precision significant digits, half
+// to even, by integer division, and reports whether rounding left it unchanged.
+func roundReference(exact *big.Rat) (decimal.Decimal, bool) {
 	if exact.Sign() == 0 {
 		return decimal.Zero, true
 	}

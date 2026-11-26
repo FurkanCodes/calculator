@@ -8,25 +8,47 @@ import (
 )
 
 // FuzzPower checks power on any input: it never panics, every error is an
-// *Error, and every result is a valid operand. It also undoes exact results
-// where an exact inverse exists: an exact reciprocal taken again gives back
-// the base, and the square root of an exact square gives back |base|.
+// *Error, and for valid operands the result, its exact flag and any refusal
+// match referencePower and the range rule. Every result is a valid operand.
+// It also undoes exact results where an exact inverse exists: an exact
+// reciprocal taken again gives back the base, and the square root of an exact
+// square gives back |base|.
 func FuzzPower(f *testing.F) {
 	seeds := []struct{ base, exponent string }{
-		{"2", "10"}, {"1.5", "2"}, {"-3", "2"}, {"0.25", "-1"}, {"3", "-1"}, {"0", "-1"},
-		{"10", "100"}, {"1.001", "-1000"}, {"2", "2.5"}, {"9.99", "-1001"}, {maxDigits, "3"}, {"x", "2"},
+		{"2", "10"}, {"1.5", "2"}, {"-3", "2"}, {"-2", "3"}, {"0.25", "-1"}, {"3", "-1"}, {"0", "-1"},
+		{"0", "0"}, {"10", "100"}, {"1.001", "-1000"}, {"2", "2.5"}, {"9.99", "-1001"}, {maxDigits, "3"},
+		{"5", "50"}, {"1.5", "29"}, {"2", "-50"}, {"x", "2"},
 	}
 	for _, s := range seeds {
 		f.Add(s.base, s.exponent)
 	}
 	f.Fuzz(func(t *testing.T, a, b string) {
 		got, err := Calculate("power", []string{a, b})
-		if err != nil {
-			var calcErr *Error
-			if !errors.As(err, &calcErr) {
-				t.Fatalf("error %v is not an *Error", err)
+		var calcErr *Error
+		if err != nil && !errors.As(err, &calcErr) {
+			t.Fatalf("error %v is not an *Error", err)
+		}
+		_, errA := parseOperand(1, a)
+		_, errB := parseOperand(2, b)
+		if errA != nil || errB != nil {
+			return // the number rules have their own tests
+		}
+
+		want, wantExact, wantCode := referencePower(a, b)
+		if wantCode == "" && !inRange(want) {
+			wantCode = OutOfRange
+		}
+		if wantCode != "" {
+			if err == nil || calcErr.Code != wantCode {
+				t.Fatalf("power(%q, %q) = %+v, %v; want error %s", a, b, got, err, wantCode)
 			}
 			return
+		}
+		if err != nil {
+			t.Fatalf("power(%q, %q) failed: %v; want %s", a, b, err, want)
+		}
+		if !mustParse(got.Value).Equal(want) || got.Exact != wantExact {
+			t.Fatalf("power(%q, %q) = %q (exact %t), reference gives %s (exact %t)", a, b, got.Value, got.Exact, want, wantExact)
 		}
 		if _, err := parseOperand(1, got.Value); err != nil {
 			t.Fatalf("result %q of power(%q, %q) is not a valid operand: %v", got.Value, a, b, err)
