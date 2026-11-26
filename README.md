@@ -1,17 +1,10 @@
-<!--
-Before submitting:
-- add an application screenshot with alt text (the frontend is built; only the screenshot is left)
-- run every command below from a clean checkout and fix anything that differs
-- re-measure coverage and update the table in "Testing and Coverage"
--->
-
 # Calculator
 
 A calculator with a Go backend that does exact decimal arithmetic. `0.1 + 0.2` returns `0.3`, and when a result has to be rounded, such as `1 ÷ 3`, the response says so.
 
 The Go backend is built and tested, with all seven operations, and so is the React frontend: a keypad that also works from the keyboard, a display that marks rounded results, and error text for each failure. So is the web container: nginx serves the frontend and forwards API calls to the backend, and so is CI. The brief for this take-home allows 2–4 hours, so it favours a small, well-tested core over extra features.
 
-<!-- Application screenshot goes here: still to take, at the submission step. -->
+<img src="docs/screenshot.png" width="320" alt="The calculator on a phone-sized screen showing 1 ÷ 3 = 0.3333… with a &quot;Rounded to 34 digits&quot; marker and a Copy button above the keypad.">
 
 ## Quick Start
 
