@@ -315,3 +315,11 @@ Outcome: Sent three fixes from the operations review to the operations agent: de
 Outcome: Checked `feature/frontend-core` after its fixes: lint, typecheck, 141 tests at 100% coverage, and the build. It already contained `main`, so `main` fast-forwarded to it. Both test suites pass on `main`.
 
 Also under entry 29: after its three review fixes, checked `feature/optional-operations` and merged it into `main`. Vet and race tests pass, with `calc` and `httpapi` at 100%. The committed Python reference script matches all 139 table cases. The new operations were checked against a locally run binary, because Docker Desktop was not running.
+
+### 30
+
+> yes please, after that I think it is time to write up the docker file to run both backend and frontend.
+
+Outcome: Sent the UI review's findings to the UI agent. The main ones: the reducer keeps the request on results, so `useSettledFrom` can go; keys flex so the layout fits a 568 px phone screen; the expression line stays on one line; screen readers hear "rounded"; there's one key table. The web container (nginx plus the frontend Dockerfile in Compose) is next, after the UI merges.
+
+Also under entry 30: after its ten review fixes, checked `feature/frontend-ui` and merged it into `main`. 272 tests pass, with 99.6% coverage. Screenshots at four phone sizes show the whole keypad with no scrolling. Lint, typecheck, build and the backend tests pass on `main`.

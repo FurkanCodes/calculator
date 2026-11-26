@@ -34,14 +34,25 @@ export type ResultTarget =
   /** After % on the second number: the result replaces the second number. */
   | { to: 'EnteringSecond'; first: Shown; operator: Operator }
 
+/** A request and where its result goes. */
+export interface Calculation {
+  request: CalculationRequest
+  target: ResultTarget
+}
+
+/**
+ * ShowingResult and Error keep the calculation they answer, so the display
+ * can show it (`1 ÷ 3 =`). A result changed by the sign key is a new state
+ * without one: the calculation no longer describes it.
+ */
 export type State =
   | { status: 'EnteringFirst'; first: Typed }
   | { status: 'OperatorChosen'; first: Shown; operator: Operator }
   | { status: 'EnteringSecond'; first: Shown; operator: Operator; second: Shown }
-  /** shown is the number that was on the display when the request was sent. */
-  | { status: 'Calculating'; request: CalculationRequest; target: ResultTarget; shown: Shown }
-  | { status: 'ShowingResult'; result: Result }
-  | { status: 'Error'; failure: Failure }
+  /** shown is the number on the display when the request was sent, as it was sent: a typed 5. is 5. */
+  | ({ status: 'Calculating'; shown: Shown } & Calculation)
+  | { status: 'ShowingResult'; result: Result; calculation?: Calculation }
+  | { status: 'Error'; failure: Failure; calculation: Calculation }
 
 export type EntryKey = { type: 'digit'; digit: Digit } | { type: 'decimalPoint' } | { type: 'toggleSign' }
 
@@ -79,7 +90,7 @@ export function reducer(state: State, action: Action): State {
     case 'Calculating':
       // Every other key, and the answer to any other request, is ignored.
       return action.type === 'settled' && action.request === state.request
-        ? settle(state.target, action.outcome)
+        ? settle(state, action.outcome)
         : state
     case 'Error':
       // An entry key starts a new first number; everything else is ignored.
@@ -98,11 +109,11 @@ function onFirstNumber(state: State, shown: Shown, action: Action): State {
     case 'operator':
       return { status: 'OperatorChosen', first: value, operator: action.operator }
     case 'squareRoot':
-      return calculating(shown, { operation: 'sqrt', operands: [value.text] }, { to: 'ShowingResult' })
+      return calculating(value, { operation: 'sqrt', operands: [value.text] }, { to: 'ShowingResult' })
     case 'percent':
       // With no operator chosen, x % is x% of 1, which is x ÷ 100.
       return calculating(
-        shown,
+        value,
         { operation: 'percentage', operands: [value.text, '1'] },
         { to: 'ShowingResult' },
       )
@@ -129,21 +140,22 @@ function enteringSecond(state: Extract<State, { status: 'EnteringSecond' }>, act
     return second === state.second ? state : { ...state, second }
   }
   const { first, operator } = state
+  const second = finished(state.second)
   const a = finished(first).text
-  const b = finished(state.second).text
+  const b = second.text
   switch (action.type) {
     case 'equals':
-      return calculating(state.second, { operation: operator, operands: [a, b] }, { to: 'ShowingResult' })
+      return calculating(second, { operation: operator, operands: [a, b] }, { to: 'ShowingResult' })
     case 'operator':
       return calculating(
-        state.second,
+        second,
         { operation: operator, operands: [a, b] },
         { to: 'OperatorChosen', operator: action.operator },
       )
     case 'percent':
       // 50 + 10 % sends 10% of 50, and the 5 it returns replaces the 10.
       return calculating(
-        state.second,
+        second,
         { operation: 'percentage', operands: [b, a] },
         { to: 'EnteringSecond', first, operator },
       )
@@ -152,14 +164,15 @@ function enteringSecond(state: Extract<State, { status: 'EnteringSecond' }>, act
   }
 }
 
-function settle(target: ResultTarget, outcome: CalculateOutcome): State {
+function settle({ request, target }: Calculation, outcome: CalculateOutcome): State {
+  const calculation: Calculation = { request, target }
   if (outcome.kind !== 'success') {
-    return { status: 'Error', failure: outcome }
+    return { status: 'Error', failure: outcome, calculation }
   }
   const result: Result = { origin: 'result', text: outcome.result, exact: outcome.exact }
   switch (target.to) {
     case 'ShowingResult':
-      return { status: 'ShowingResult', result }
+      return { status: 'ShowingResult', result, calculation }
     case 'OperatorChosen':
       return { status: 'OperatorChosen', first: result, operator: target.operator }
     case 'EnteringSecond':
