@@ -12,8 +12,10 @@ describe('failureText', () => {
     expect(text.message).not.toBe('backend text')
   })
 
-  it('gives every code a different message', () => {
-    expect(new Set(Object.values(ERROR_MESSAGES)).size).toBe(answered.length)
+  it('gives every code a different message, none the same as the general fallback', () => {
+    const messages = Object.values(ERROR_MESSAGES)
+    expect(new Set(messages).size).toBe(answered.length)
+    expect(messages).not.toContain(failureText({ kind: 'error', code: null, message: '' }).message)
   })
 
   it('shows the backend message for a code this client does not know', () => {

@@ -27,7 +27,7 @@ export const ERROR_MESSAGES: Record<Exclude<ErrorCode, 'SERVICE_UNAVAILABLE'>, s
   INVALID_REQUEST: 'The calculator couldn’t read that request.',
   INVALID_NUMBER: 'That isn’t a number the calculator accepts.',
   WRONG_OPERAND_COUNT: 'That operation got the wrong number of values.',
-  UNSUPPORTED_OPERATION: 'This operation isn’t available yet.',
+  UNSUPPORTED_OPERATION: 'The calculator doesn’t know that operation.',
   NOT_FOUND: 'The calculator service wasn’t found.',
   METHOD_NOT_ALLOWED: 'The calculator didn’t accept that request.',
   INPUT_TOO_LARGE: 'That number is too long for the calculator.',
@@ -35,7 +35,7 @@ export const ERROR_MESSAGES: Record<Exclude<ErrorCode, 'SERVICE_UNAVAILABLE'>, s
   NEGATIVE_SQUARE_ROOT: 'Can’t take the square root of a negative number.',
   INVALID_EXPONENT: 'The power must be a whole number from −1000 to 1000.',
   OUT_OF_RANGE: 'The result is too large or too small to show.',
-  INTERNAL_ERROR: 'Something went wrong in the calculator.',
+  INTERNAL_ERROR: 'The calculator hit an unexpected problem.',
 }
 
 const FALLBACK_MESSAGE = 'Something went wrong in the calculator.'
