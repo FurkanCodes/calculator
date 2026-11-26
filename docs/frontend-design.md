@@ -90,7 +90,7 @@ C   √   xʸ  %
 =  (spans all four columns)
 ```
 
-The keyboard maps digits, `.`, `+ - * /`, `^`, `%`, `Enter` and `=` (equals), `Escape` and `Delete` (clear), and `Backspace` (clear the current entry). The focus ring is 2 px in `accent`, offset 2 px.
+The keyboard maps digits, `.`, `+ - * /`, `^`, `%`, `Enter` and `=` (equals), and `Escape` or `Delete` (clear). There is no Backspace: the reducer has no action that deletes one character, and Clear covers mistakes on a calculator this simple. The focus ring is 2 px in `accent`, offset 2 px.
 
 **States** (from the states sheet):
 - Calculating: the previous value in `dimmed`, three dots and "Calculating…" in the footer, `aria-busy` on the card. Keys stay enabled but are ignored (the reducer's rule), except `C`.
