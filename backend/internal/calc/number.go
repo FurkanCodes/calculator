@@ -17,6 +17,10 @@ const (
 	// maxMagnitude bounds the range: a number is zero, or has
 	// 1e-maxMagnitude <= |x| < 1e+maxMagnitude.
 	maxMagnitude = 100
+
+	// maxExponent bounds the exponent of power: a whole number from
+	// -maxExponent to maxExponent.
+	maxExponent = 1000
 )
 
 // numberPattern is a plain decimal: an optional minus sign, ASCII digits and

@@ -87,6 +87,10 @@ func TestCalculate(t *testing.T) {
 			`{"result":"0.3333333333333333333333333333333333","exact":false}`},
 		{"keys in any order, whitespace after", "{\"operands\": [\"1.5\", \"4\"], \"operation\": \"multiply\"}\n  ",
 			`{"result":"6","exact":true}`},
+		{"percentage", `{"operation": "percentage", "operands": ["12.5", "80"]}`, `{"result":"10","exact":true}`},
+		{"power", `{"operation": "power", "operands": ["2", "-3"]}`, `{"result":"0.125","exact":true}`},
+		{"one-operand square root", `{"operation": "sqrt", "operands": ["2"]}`,
+			`{"result":"1.414213562373095048801688724209698","exact":false}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -148,6 +152,12 @@ func TestErrorResponses(t *testing.T) {
 		{"valid object then 4 KiB of junk", http.MethodPost, calculatePath, calculateBody("add", "1", "2") + strings.Repeat("x", 10000), 413, "INPUT_TOO_LARGE"},
 		{"operand over 34 digits", http.MethodPost, calculatePath, calculateBody("add", "1", "12345678901234567890123456789012345"), 413, "INPUT_TOO_LARGE"},
 		{"division by zero", http.MethodPost, calculatePath, calculateBody("divide", "10", "0"), 422, "DIVISION_BY_ZERO"},
+		{"zero to a negative power", http.MethodPost, calculatePath, calculateBody("power", "0", "-1"), 422, "DIVISION_BY_ZERO"},
+		{"negative square root", http.MethodPost, calculatePath, calculateBody("sqrt", "-4"), 422, "NEGATIVE_SQUARE_ROOT"},
+		{"fractional exponent", http.MethodPost, calculatePath, calculateBody("power", "4", "0.5"), 422, "INVALID_EXPONENT"},
+		{"exponent over 1000", http.MethodPost, calculatePath, calculateBody("power", "1", "1001"), 422, "INVALID_EXPONENT"},
+		{"power out of range", http.MethodPost, calculatePath, calculateBody("power", "10", "100"), 422, "OUT_OF_RANGE"},
+		{"square root with two operands", http.MethodPost, calculatePath, calculateBody("sqrt", "4", "9"), 400, "WRONG_OPERAND_COUNT"},
 		{"result out of range", http.MethodPost, calculatePath, calculateBody("multiply", "1"+strings.Repeat("0", 99), "10"), 422, "OUT_OF_RANGE"},
 		{"unknown path", http.MethodGet, "/api/v2/calculate", "", 404, "NOT_FOUND"},
 		{"root path", http.MethodGet, "/", "", 404, "NOT_FOUND"},

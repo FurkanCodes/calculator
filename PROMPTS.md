@@ -307,3 +307,11 @@ Outcome: Sent all ten findings from the frontend-core review to the frontend age
 > yes fix them
 
 Outcome: Sent three fixes from the operations review to the operations agent: delete the early out-of-range check in `power`, since it guards against nothing; give `FuzzPower` a `math/big` value check; commit the Python script that produces the expected test values.
+
+### 29
+
+> merge it when it's ready
+
+Outcome: Checked `feature/frontend-core` after its fixes: lint, typecheck, 141 tests at 100% coverage, and the build. It already contained `main`, so `main` fast-forwarded to it. Both test suites pass on `main`.
+
+Also under entry 29: after its three review fixes, checked `feature/optional-operations` and merged it into `main`. Vet and race tests pass, with `calc` and `httpapi` at 100%. The committed Python reference script matches all 139 table cases. The new operations were checked against a locally run binary, because Docker Desktop was not running.
