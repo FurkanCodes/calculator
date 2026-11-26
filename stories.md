@@ -95,3 +95,7 @@ Everything this project is meant to deliver, in build order. An item is ticked o
 - [x] Contract tests: operations, codes and statuses, number rules, routes, and every example sent through the real handler
 - [x] Swagger UI at `/docs/`, self-hosted in the web container, with "Try it out" checked in a browser
 - [x] How to view the docs in development
+
+## 11. Docs panel
+
+- [x] A short guide beside the calculator (left on wide screens, below it on phones), with links to Swagger UI, `openapi.json` and the repo; checked in Chrome at phone, tablet and desktop sizes

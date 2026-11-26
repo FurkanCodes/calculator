@@ -378,3 +378,9 @@ Confirmed the four reasons from the design phase, and the alternative of serving
 > add the nginx reasons to the readme
 
 Added a "nginx in front, two containers" design decision to the README.
+
+### 42
+
+> Great couple of msll things, we can make UI better, in this case lets just add documentation type of page too, split it into two, a calculator does not need a lot of space irght, on the righrt keep the claculator, on the left keep the docs, like readme, but users can just read it there and understand our proceedure, thought process and app, but also add open api link so that they can test the swagger as well. use chrome to test your work and use impeccable and doc skill to critique yourself after you are done I will tell you my opinion.
+
+Added a docs panel: left of the calculator on wide screens, below it on phones, with links to Swagger UI, `openapi.json` and the repo. Checked in Chrome; critiqued with impeccable.
