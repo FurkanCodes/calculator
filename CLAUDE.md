@@ -52,7 +52,7 @@ Each rule needs a test or a lint check behind it. A rule with no check is not do
    - Divide uses `QuoRem` at a computed number of decimal places and rounds half-even from the remainder.
    - Percentage multiplies, then moves the decimal point two places, which is exact; it rounds like multiply.
    - Square root takes the exact integer root of the operand scaled to 34 result digits, and rounds once from the remainder. A tie is impossible.
-   - Power is computed exactly by repeated squaring and rounded once; a negative exponent divides 1 by the positive power under the divide policy. An early check rejects only powers that are certainly out of range, and a test compares it with the full computation.
+   - Power is computed exactly by repeated squaring and rounded once; a negative exponent divides 1 by the positive power under the divide policy.
    - `exact` is `false` when the policy changed the result.
    - `calc` may use only the shopspring functions on the allowlist in `calc/rules_test.go`. That keeps out the ones that round on their own (`Div`, `Avg`, `Round`, `Sqrt`, `Pow*` and the rest), the package-wide settings (`DivisionPrecision`, `UseScientificNotation`, `TrimTrailingZeros`) and the `Require*` constructors, which panic. Adding a name to the allowlist is a deliberate change.
    - Request types hold operands as `string`, never `decimal.Decimal`: its JSON decoder silently accepts bare JSON numbers, which breaks rule 2.

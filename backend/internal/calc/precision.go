@@ -68,10 +68,11 @@ func roundsUp(q, r, b decimal.Decimal, places int32) bool {
 }
 
 // power returns base^n under the policy, and whether the result is exact.
-// base is not zero, and n is a non-zero whole number with |n| <= maxExponent.
+// n is a whole number with |n| <= maxExponent, and base is not zero if n < 0.
 // base^|n| is computed exactly: with at most Precision significant digits in
-// base, that is at most 34 000 digits. A positive power is then rounded once;
-// a negative one goes through divide, which rounds 1 ÷ base^|n| once.
+// base, its coefficient has at most 34 000 digits. A positive power is then
+// rounded once; a negative one goes through divide, which rounds 1 ÷ base^|n|
+// once. Calculate rejects a result outside the range.
 func power(base decimal.Decimal, n int64) (decimal.Decimal, bool) {
 	if n < 0 {
 		return divide(decimal.New(1, 0), exactPower(base, -n))
@@ -79,9 +80,9 @@ func power(base decimal.Decimal, n int64) (decimal.Decimal, bool) {
 	return roundExact(exactPower(base, n))
 }
 
-// exactPower returns base^k exactly for k >= 1, by repeated squaring. base is
-// normalized first, so trailing zeros in an operand such as "1.000" are not
-// multiplied k times.
+// exactPower returns base^k exactly, by repeated squaring; base^0 is 1, 0^0
+// included. base is normalized first, so trailing zeros in an operand such as
+// "1.000" are not multiplied k times.
 func exactPower(base decimal.Decimal, k int64) decimal.Decimal {
 	result := decimal.New(1, 0)
 	square := base.Normalize()
@@ -95,25 +96,6 @@ func exactPower(base decimal.Decimal, k int64) decimal.Decimal {
 		}
 		square = square.Mul(square)
 	}
-}
-
-// powerOutOfRange reports that base^n is certainly out of range, so the
-// exact power need not be computed. base is not zero.
-//
-// With m = magnitude(base), 10^(m-1) <= |base| < 10^m, so |base^n| lies
-// between 10^(n(m-1)) and 10^(nm), bounds included. If the lower bound is at
-// least 10^maxMagnitude, the result is too large. If the upper bound is at
-// most 10^-(maxMagnitude+1), the result is too small. Rounding never crosses
-// a power of ten, because a power of ten is itself a 34-digit number, so the
-// rounded result is out of range too. Every other power is computed and
-// Calculate checks the rounded result, so this never rejects one in range.
-func powerOutOfRange(base decimal.Decimal, n int64) bool {
-	m := int64(magnitude(base))
-	low, high := n*(m-1), n*m
-	if n < 0 {
-		low, high = high, low
-	}
-	return low >= maxMagnitude || high <= -(maxMagnitude+1)
 }
 
 // squareRoot returns √x under the policy, and whether the root is exact. x

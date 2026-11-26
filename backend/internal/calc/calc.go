@@ -69,15 +69,8 @@ func applyPower(args []decimal.Decimal) (decimal.Decimal, bool, error) {
 		return decimal.Decimal{}, false, newError(InvalidExponent,
 			"The exponent must be a whole number from -%d to %d.", maxExponent, maxExponent)
 	}
-	switch {
-	case n == 0:
-		return decimal.New(1, 0), true, nil // 0^0 included
-	case base.IsZero() && n < 0:
+	if base.IsZero() && n < 0 {
 		return decimal.Decimal{}, false, newError(DivisionByZero, "Cannot raise zero to a negative power.")
-	case base.IsZero():
-		return base, true, nil
-	case powerOutOfRange(base, n):
-		return decimal.Decimal{}, false, resultOutOfRange()
 	}
 	value, exact := power(base, n)
 	return value, exact, nil
@@ -134,11 +127,8 @@ func Calculate(name string, operands []string) (Result, error) {
 		return Result{}, err
 	}
 	if !inRange(value) {
-		return Result{}, resultOutOfRange()
+		return Result{}, newError(OutOfRange,
+			"The result is outside the supported range of 1e-%d to 1e%d.", maxMagnitude, maxMagnitude)
 	}
 	return Result{Value: value.String(), Exact: exact}, nil
-}
-
-func resultOutOfRange() *Error {
-	return newError(OutOfRange, "The result is outside the supported range of 1e-%d to 1e%d.", maxMagnitude, maxMagnitude)
 }

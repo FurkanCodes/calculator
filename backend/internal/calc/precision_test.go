@@ -7,43 +7,10 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// TestPowerOutOfRangeIsSafe checks that the bail-out in powerOutOfRange only
-// rejects powers that the full computation also puts out of range. For every
-// magnitude it takes the smallest and the largest operand of that magnitude
-// and, for positive and for negative exponents, the first exponent at which
-// the bail-out fires. |base^n| only moves further out of range as |n| grows,
-// so that first exponent is the closest call.
-func TestPowerOutOfRangeIsSafe(t *testing.T) {
-	nines, _ := decimal.NewFromString(maxDigits)
-	checked := 0
-	for m := int32(-99); m <= 100; m++ {
-		smallest := decimal.New(1, m-1)
-		largest := nines.Shift(m - Precision)
-		for _, base := range []decimal.Decimal{smallest, largest} {
-			for _, step := range []int64{1, -1} {
-				for n := step; -maxExponent <= n && n <= maxExponent; n += step {
-					if !powerOutOfRange(base, n) {
-						continue
-					}
-					if value, _ := power(base, n); inRange(value) {
-						t.Errorf("powerOutOfRange(%s, %d) is true, but the result %s is in range", base, n, value)
-					}
-					checked++
-					break
-				}
-			}
-		}
-	}
-	if checked < 200 {
-		t.Errorf("the bail-out fired for only %d bases and directions; the test is not checking much", checked)
-	}
-}
-
 // FuzzPower checks power on any input: it never panics, every error is an
-// *Error, every result is a valid operand, and the bail-out agrees with the
-// full computation. It also undoes exact results where an exact inverse
-// exists: an exact reciprocal taken again gives back the base, and the square
-// root of an exact square gives back |base|.
+// *Error, and every result is a valid operand. It also undoes exact results
+// where an exact inverse exists: an exact reciprocal taken again gives back
+// the base, and the square root of an exact square gives back |base|.
 func FuzzPower(f *testing.F) {
 	seeds := []struct{ base, exponent string }{
 		{"2", "10"}, {"1.5", "2"}, {"-3", "2"}, {"0.25", "-1"}, {"3", "-1"}, {"0", "-1"},
@@ -53,15 +20,6 @@ func FuzzPower(f *testing.F) {
 		f.Add(s.base, s.exponent)
 	}
 	f.Fuzz(func(t *testing.T, a, b string) {
-		base, errA := parseOperand(1, a)
-		exponent, errB := parseOperand(2, b)
-		n, whole := wholeExponent(exponent)
-		if errA == nil && errB == nil && whole && n != 0 && !base.IsZero() && powerOutOfRange(base, n) {
-			if value, _ := power(base, n); inRange(value) {
-				t.Fatalf("powerOutOfRange(%s, %d) is true, but the result %s is in range", base, n, value)
-			}
-		}
-
 		got, err := Calculate("power", []string{a, b})
 		if err != nil {
 			var calcErr *Error
@@ -76,13 +34,14 @@ func FuzzPower(f *testing.F) {
 		if !got.Exact {
 			return
 		}
-		switch n {
-		case -1:
+		base, exponent := mustParse(a), mustParse(b)
+		switch {
+		case exponent.Equal(decimal.New(-1, 0)):
 			back, err := Calculate("power", []string{got.Value, "-1"})
 			if err != nil || !back.Exact || !mustParse(back.Value).Equal(base) {
 				t.Fatalf("power(%q, -1) = %q exactly, but taking it again gives %+v, %v", a, got.Value, back, err)
 			}
-		case 2:
+		case exponent.Equal(decimal.New(2, 0)):
 			back, err := Calculate("sqrt", []string{got.Value})
 			if err != nil || !back.Exact || !mustParse(back.Value).Equal(base.Abs()) {
 				t.Fatalf("power(%q, 2) = %q exactly, but its square root is %+v, %v", a, got.Value, back, err)
