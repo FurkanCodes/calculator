@@ -1,6 +1,6 @@
 # Frontend design
 
-**Status: the logic core is built; the UI is not.** The number checks, the API client and the state machine below are built and tested in `frontend/src` (see the README). The keypad, display and layout are not built yet. The backend it talks to is built.
+**Status: built.** The number checks, the API client, the state machine and the interface below are built and tested in `frontend/src` (see the README). The nginx container that will serve them is not built yet.
 
 ## Behaviour
 
@@ -80,7 +80,7 @@ Chosen from three drafts on the [design canvas](https://claude.ai/artifact/AfAyY
 
 **Display card.** White, 14 px radius, 20 px padding, contents aligned to the bottom:
 - Expression line: right-aligned, 17 px mono, `muted`, such as `50 +` or `1 ÷ 3 =`.
-- Value: 40 px mono, right-aligned. A long value shrinks step by step to 26 px. If it still doesn't fit, it scrolls horizontally from its leading digits, with a 40 px fade on the right edge. The full value is always in the DOM, and `output` has `aria-live="polite"`.
+- Value: 40 px mono, right-aligned. A long value shrinks step by step to 26 px. If it still doesn't fit, it scrolls horizontally from its leading digits, with a 40 px fade on the right edge. A number being typed scrolls from its end instead, so the digit just typed stays in view; the fade is then on the left edge, and on both edges once scrolled to the middle. The full value is always in the DOM, and `output` has `aria-live="polite"`.
 - Footer row, 44 px tall: on the left the rounded chip when `exact` is false (nothing when exact); on the right a "Copy" button (icon and label) when a result is shown.
 
 **Keypad.** A 4-column grid with 8 px gaps and 60 px keys with a 10 px radius, all real `<button>`s. Icon-like keys have an `aria-label` (`Clear`, `Square root`, `Power`, `Percent`, `Divide`, `Multiply`, `Subtract`, `Add`, `Change sign`, `Decimal point`, `Equals`).
@@ -97,7 +97,7 @@ C   √   xʸ  %
 The keyboard maps digits, `.`, `+ - * /`, `^`, `%`, `Enter` and `=` (equals), and `Escape` or `Delete` (clear). There is no Backspace: the reducer has no action that deletes one character, and Clear covers mistakes on a calculator this simple. The focus ring is 2 px in `accent`, offset 2 px.
 
 **States** (from the states sheet):
-- Calculating: the previous value in `dimmed`, three dots and "Calculating…" in the footer, `aria-busy` on the card. Keys stay enabled but are ignored (the reducer's rule), except `C`.
+- Calculating: the previous value in `dimmed`, three dots and "Calculating…" in the footer, `aria-busy` on the card. The dimming and the footer wait 300 ms, so a fast answer doesn't flicker. Keys stay enabled but are ignored (the reducer's rule), except `C`.
 - Error: an icon and the message in `error` in place of the value, and "Type a number to start again." in the footer. The text is chosen by error code. For a code the client doesn't know, the backend's message is shown.
 - Unreachable: a no-connection icon, "Can't reach the calculator.", and "Check your connection, then try again." There is no retry button, because the reducer leaves Error only on a digit or Clear. nginx's `SERVICE_UNAVAILABLE` also shows this state, because it means the calculator is down.
 - Invalid response (an answer that breaks the API's contract, the client's `invalidResponse`): styled like Error, with "Something went wrong." and "Try again, or press C to start over." in the footer.
