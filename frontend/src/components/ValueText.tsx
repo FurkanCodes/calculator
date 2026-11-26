@@ -76,7 +76,7 @@ export function ValueText({ text, anchor, dimmed, textRef }: ValueTextProps) {
         <ScrollArea.Content className="text-right">
           <span
             ref={textRef}
-            className={`inline-block py-1.5 font-mono text-[40px] leading-tight whitespace-nowrap tabular-nums ${dimmed ? 'value-dimmed' : 'text-ink'}`}
+            className={`inline-block py-1.5 font-mono text-[40px] leading-none whitespace-nowrap tabular-nums ${dimmed ? 'value-dimmed' : 'text-ink'}`}
             data-testid="value"
           >
             {text}

@@ -76,14 +76,14 @@ Chosen from three drafts on the [design canvas](https://claude.ai/artifact/AfAyY
 | `rounded` | text `#7A4F00` on `#FFF4DA` | The "≈ Rounded to 34 digits" chip |
 | `error` | `#B42318`, card border `#F1C9C4` | Service error messages |
 
-**Layout (phone first).** One column with 16 px padding and 16 px gaps: a header row ("Calculator", and "Exact decimals" as a caption), then the display card, which takes the remaining height, then the keypad. On wider screens the same column is centred, at most 420 px wide. There is no separate desktop layout.
+**Layout (phone first).** One column with 16 px padding and 16 px gaps: a header row ("Calculator", and "Exact decimals" as a caption), then the display card, which takes the remaining height, then the keypad. The column is exactly the viewport's height (`100dvh`), so the `=` key is never below the fold: when the height is short, the keys shrink first (see Keypad), and the page scrolls only if even 44 px keys don't fit. On screens under 600 px tall, the padding and gaps are 12 px instead of 16 px; that is what fits an iPhone SE in Safari (375 × 553). On wider screens the same column is centred, at most 420 px wide. There is no separate desktop layout.
 
 **Display card.** White, 14 px radius, 20 px padding, contents aligned to the bottom:
-- Expression line: right-aligned, 17 px mono, `muted`, such as `50 +` or `1 ÷ 3 =`.
-- Value: 40 px mono, right-aligned. A long value shrinks step by step to 26 px. If it still doesn't fit, it scrolls horizontally from its leading digits, with a 40 px fade on the right edge. A number being typed scrolls from its end instead, so the digit just typed stays in view; the fade is then on the left edge, and on both edges once scrolled to the middle. The full value is always in the DOM, and `output` has `aria-live="polite"`.
+- Expression line: right-aligned, 17 px mono, `muted`, such as `50 +` or `1 ÷ 3 =`. One line: a longer expression is cut at its start with an ellipsis, so its end (the operator, or `=`) stays in view, and the full text is its `title`.
+- Value: 40 px mono, right-aligned. A long value shrinks step by step to 26 px. If it still doesn't fit, it scrolls horizontally from its leading digits, with a 40 px fade on the right edge. A number being typed scrolls from its end instead, so the digit just typed stays in view; the fade is then on the left edge, and on both edges once scrolled to the middle. The full value is always in the DOM, in a live region (`role="status"`, `aria-live="polite"`) that also says ", rounded to 34 significant digits" when `exact` is false.
 - Footer row, 44 px tall: on the left the rounded chip when `exact` is false (nothing when exact); on the right a "Copy" button (icon and label) when a result is shown.
 
-**Keypad.** A 4-column grid with 8 px gaps and 60 px keys with a 10 px radius, all real `<button>`s. Icon-like keys have an `aria-label` (`Clear`, `Square root`, `Power`, `Percent`, `Divide`, `Multiply`, `Subtract`, `Add`, `Change sign`, `Decimal point`, `Equals`).
+**Keypad.** A 4-column grid with 8 px gaps and keys with a 10 px radius, all real `<button>`s. The six rows share the height the display card leaves, each between 44 px (the touch minimum) and 60 px; the drafts used a fixed 60 px, which needs 682 px of height and put `=` below the fold on small phones. Icon-like keys have an `aria-label` (`Clear`, `Square root`, `Power`, `Percent`, `Divide`, `Multiply`, `Subtract`, `Add`, `Change sign`, `Decimal point`, `Equals`).
 
 ```
 C   √   xʸ  %

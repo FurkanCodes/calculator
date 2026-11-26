@@ -14,7 +14,7 @@ export function DisplayCard({ model }: { model: DisplayModel }) {
     <section
       aria-label="Display"
       aria-busy={value.kind === 'number' && value.dimmed}
-      className={`flex min-h-48 flex-1 flex-col justify-end rounded-[14px] border bg-surface p-5 ${failed ? 'border-error-border' : 'border-hairline'}`}
+      className={`flex flex-auto flex-col justify-end rounded-[14px] border bg-surface p-5 ${failed ? 'border-error-border' : 'border-hairline'}`}
     >
       <Expression text={expression} />
       <div role="status" aria-live="polite" className="mt-1">
@@ -34,7 +34,7 @@ export function DisplayCard({ model }: { model: DisplayModel }) {
           </>
         )}
       </div>
-      <div className="mt-2 flex h-11 items-center justify-between gap-2">
+      <div className="mt-1 flex h-11 items-center justify-between gap-2">
         <Footer value={value} textRef={textRef} />
       </div>
     </section>
