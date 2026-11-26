@@ -106,6 +106,7 @@ flowchart LR
 
 ## Design Decisions
 
+- **One endpoint for all operations.** `POST /api/v1/calculate` names the operation in the body, so every operation shares one request shape, one validation path and one error format, and adding an operation is one row in a table rather than a new route.
 - **Exact decimals.** [shopspring/decimal](https://github.com/shopspring/decimal) does the math; `calc` owns rounding: 34 significant digits, half to even, rounded once. `exact: false` says it rounded.
 - **Numbers as strings.** JSON numbers become floats in browsers, so operands and results are strings and the API rejects JSON numbers. The frontend does no arithmetic, and a lint rule enforces it.
 - **One error format, one status per code.** Defined in one table and checked by tests.

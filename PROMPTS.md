@@ -361,3 +361,9 @@ Added `scripts/smoke.sh` and one CI workflow (backend, frontend, Compose smoke t
 > public, trim read me, do not do a lot of words, stick with simple yet effective readme. keep aws in product design.
 
 Outcome: Cut the README from 440 to 142 lines: quick start, local development, operations, API with the error table, one architecture diagram, six one-line design decisions, testing and coverage, assumptions, and AI usage. The detail moved word for word to `docs/design.md`, and the AWS design stays in `docs/production-design.md`, linked from the README. The repo was scanned for secrets and then made public.
+
+### 36
+
+> [Pasted the assignment brief from the recruiting email: the objective, functional and non-functional requirements, constraints, deliverables and instructions.]
+
+Outcome: Checked the finished project against every line of the brief. All requirements are met. Added one design decision to the README explaining why there is a single `POST /api/v1/calculate` endpoint rather than one route per operation.
