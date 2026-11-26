@@ -323,3 +323,9 @@ Also under entry 29: after its three review fixes, checked `feature/optional-ope
 Outcome: Sent the UI review's findings to the UI agent. The main ones: the reducer keeps the request on results, so `useSettledFrom` can go; keys flex so the layout fits a 568 px phone screen; the expression line stays on one line; screen readers hear "rounded"; there's one key table. The web container (nginx plus the frontend Dockerfile in Compose) is next, after the UI merges.
 
 Also under entry 30: after its ten review fixes, checked `feature/frontend-ui` and merged it into `main`. 272 tests pass, with 99.6% coverage. Screenshots at four phone sizes show the whole keypad with no scrolling. Lint, typecheck, build and the backend tests pass on `main`.
+
+### 31
+
+> yes, but also please give us backend API ui as well, use openapi.
+
+Outcome: Sent the web container review's fixes to its agent: a narrower README error claim, one request-ID header, a CSP without `'unsafe-inline'`, shorter proxy timeouts, and the dockerignore moved next to its Dockerfile. Started an OpenAPI agent: a hand-written OpenAPI 3.1 `openapi.json` embedded in the backend and served at `/api/v1/openapi.json`, with contract tests that tie it to the operation and status tables, and then a self-hosted Swagger UI at `/docs/` in the web container.
