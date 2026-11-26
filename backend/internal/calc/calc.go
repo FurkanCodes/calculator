@@ -95,12 +95,18 @@ func applySqrt(args []decimal.Decimal) (decimal.Decimal, bool, error) {
 	return value, exact, nil
 }
 
+// Operations returns the names of every supported operation, sorted. The
+// slice is new on every call, so changing it cannot change the table.
+func Operations() []string {
+	return slices.Sorted(maps.Keys(operations))
+}
+
 // Calculate runs the named operation on the operand strings. Every error it
 // returns is an *Error.
 func Calculate(name string, operands []string) (Result, error) {
 	op, ok := operations[name]
 	if !ok {
-		supported := strings.Join(slices.Sorted(maps.Keys(operations)), ", ")
+		supported := strings.Join(Operations(), ", ")
 		return Result{}, newError(UnsupportedOperation,
 			"Unsupported operation %q. Supported operations: %s.", name, supported)
 	}

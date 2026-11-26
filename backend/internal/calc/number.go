@@ -11,8 +11,8 @@ const (
 	// Precision is the number of significant digits a result keeps.
 	Precision = 34
 
-	// maxLength caps an operand string before any parsing work is done.
-	maxLength = 256
+	// MaxLength caps an operand string before any parsing work is done.
+	MaxLength = 256
 
 	// maxMagnitude bounds the range: a number is zero, or has
 	// 1e-maxMagnitude <= |x| < 1e+maxMagnitude.
@@ -23,16 +23,20 @@ const (
 	maxExponent = 1000
 )
 
-// numberPattern is a plain decimal: an optional minus sign, ASCII digits and
+// NumberPattern is a plain decimal: an optional minus sign, ASCII digits and
 // an optional fraction. It has no plus sign, exponent, spaces or bare point.
-var numberPattern = regexp.MustCompile(`^-?[0-9]+(\.[0-9]+)?$`)
+// It is exported, with MaxLength, so the API description can be checked
+// against it.
+const NumberPattern = `^-?[0-9]+(\.[0-9]+)?$`
+
+var numberPattern = regexp.MustCompile(NumberPattern)
 
 // parseOperand converts an operand string to a decimal and enforces the number
 // rules. position is the operand's 1-based position, for error messages.
 func parseOperand(position int, s string) (decimal.Decimal, error) {
-	if len(s) > maxLength {
+	if len(s) > MaxLength {
 		return decimal.Decimal{}, newError(InputTooLarge,
-			"Operand %d is longer than %d characters.", position, maxLength)
+			"Operand %d is longer than %d characters.", position, MaxLength)
 	}
 	if !numberPattern.MatchString(s) {
 		return decimal.Decimal{}, newError(InvalidNumber,

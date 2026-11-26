@@ -412,3 +412,15 @@ func FuzzCalculate(f *testing.F) {
 		}
 	})
 }
+
+func TestOperations(t *testing.T) {
+	want := []string{"add", "divide", "multiply", "percentage", "power", "sqrt", "subtract"}
+	got := Operations()
+	if !slices.Equal(got, want) {
+		t.Fatalf("Operations() = %v, want %v", got, want)
+	}
+	got[0] = "changed"
+	if again := Operations(); !slices.Equal(again, want) {
+		t.Errorf("changing the returned slice changed the next result: %v", again)
+	}
+}
