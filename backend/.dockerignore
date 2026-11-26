@@ -1,0 +1,4 @@
+*.out
+coverage.html
+bin/
+**/testdata/fuzz/

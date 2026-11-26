@@ -3,7 +3,7 @@ Draft written before any code exists. Before submitting:
 - run every command below from a clean checkout and fix anything that differs
 - confirm the Go and Node versions against go.mod and package.json
 - add a screenshot with alt text, the CI badge, and the coverage numbers
-- create PROMPTS.md
+- remove the temporary 127.0.0.1:8081 port mapping from docker-compose.yml once the web container exists
 -->
 
 # Calculator

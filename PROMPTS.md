@@ -193,3 +193,9 @@ Outcome: Production design now maps API Gateway errors to our JSON format. Repos
 > First lets push the code, then we can start coding
 
 Outcome: Pushed to a private GitHub repo. Built `internal/calc`: the operation table, number rules and precision policy, tested against values from Python's `decimal` module and with a fuzz test.
+
+### 13
+
+> First, set up the docker properly so when I run docker compose up -d it should start the backend.
+
+Outcome: Added the server entry point (`cmd/calculator`, with graceful shutdown and a `-healthcheck` flag), `GET /healthz`, a multi-stage Dockerfile on distroless, and `docker-compose.yml`. Checked that the container reports healthy and that `docker compose stop` shuts it down cleanly with exit code 0.
