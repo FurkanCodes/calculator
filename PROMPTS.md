@@ -301,3 +301,9 @@ Outcome: Chose "Ledger" as the visual design. Wrote its spec into `docs/frontend
 > yes fix them, negate the shown result
 
 Outcome: Sent all ten findings from the frontend-core review to the frontend agent. The main ones: the `%` result could be edited by typing; answers were not tied to their request; the no-arithmetic lint check had gaps; broken responses were reported as "unreachable". Decision recorded: the sign key negates a shown result and keeps its rounded flag. Told the UI agent about the coming API changes (`press` in place of `dispatch`, an `invalidResponse` outcome).
+
+### 28
+
+> yes fix them
+
+Outcome: Sent three fixes from the operations review to the operations agent: delete the early out-of-range check in `power`, since it guards against nothing; give `FuzzPower` a `math/big` value check; commit the Python script that produces the expected test values.
