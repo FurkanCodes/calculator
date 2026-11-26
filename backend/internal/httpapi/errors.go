@@ -27,6 +27,8 @@ var statuses = map[string]int{
 	codeMethodNotAllowed:              http.StatusMethodNotAllowed,
 	string(calc.InputTooLarge):        http.StatusRequestEntityTooLarge,
 	string(calc.DivisionByZero):       http.StatusUnprocessableEntity,
+	string(calc.NegativeSquareRoot):   http.StatusUnprocessableEntity,
+	string(calc.InvalidExponent):      http.StatusUnprocessableEntity,
 	string(calc.OutOfRange):           http.StatusUnprocessableEntity,
 	codeInternal:                      http.StatusInternalServerError,
 }

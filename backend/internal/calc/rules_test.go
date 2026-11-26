@@ -22,15 +22,28 @@ import (
 // as regexp's Longest). Adding a name here is a deliberate decision, not a
 // side effect.
 var allowedAPIs = map[string][]string{
-	"fmt":      {"Sprintf"},
-	"maps":     {"Keys"},
-	"math/big": {"Bit"},
-	"regexp":   {"MatchString", "MustCompile"},
-	"slices":   {"Sorted"},
-	"strings":  {"Join"},
+	"fmt":  {"Sprintf"},
+	"maps": {"Keys"},
+	"math/big": {
+		"Bit",
+		// Int.Sqrt is the exact integer square root ⌊√x⌋, not shopspring's
+		// rounding Sqrt: squareRoot keeps the remainder and rounds once
+		// itself. It panics only on a negative x, which applySqrt rejects
+		// first. It writes into its receiver, and squareRoot only calls it on
+		// the fresh copy BigInt returns, so no decimal's value changes.
+		"Sqrt",
+	},
+	"regexp":  {"MatchString", "MustCompile"},
+	"slices":  {"Sorted"},
+	"strings": {"Join"},
 	"github.com/shopspring/decimal": {
 		"Abs", "Add", "BigInt", "Cmp", "Decimal", "Equal", "Exponent", "IsZero", "Mul", "Neg",
 		"New", "NewFromString", "Normalize", "NumDigits", "QuoRem", "RoundBank", "Shift", "Sign", "String", "Sub",
+		// IntPart drops a fraction, but wholeExponent calls it only on values
+		// of at most maxExponent and rejects any value it changed. It cannot panic.
+		"IntPart",
+		// NewFromBigInt copies an integer exactly. It cannot round or panic.
+		"NewFromBigInt",
 	},
 }
 
