@@ -109,6 +109,7 @@ describe('the keypad', () => {
     const user = userEvent.setup()
     render(<Calculator />)
 
+    await user.tab() // the About link in the header
     await user.tab() // Clear
     await user.tab() // Square root
     await user.tab() // Power
