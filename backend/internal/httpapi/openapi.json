@@ -207,7 +207,7 @@
             }
           },
           "413": {
-            "description": "The body is over 4 KiB (4096 bytes), or an operand is over 256 characters or 34 significant digits.",
+            "description": "The body is over 4 KiB (4096 bytes), or an operand is over 256 characters or 34 significant digits. A body over 16 KiB never reaches the calculator: the web container's nginx answers it with the same code and its own message.",
             "headers": {
               "X-Request-ID": {"$ref": "#/components/headers/RequestId"}
             },
@@ -314,7 +314,7 @@
         "tags": ["Service"],
         "operationId": "getHealth",
         "summary": "Check that the service is up",
-        "description": "Returns `{\"status\": \"ok\"}` while the process is running. It does no other work and is not logged.",
+        "description": "Returns `{\"status\": \"ok\"}` while the process is running. It does no other work and is not logged.\n\nThrough the web container, `/healthz` is not forwarded: nginx answers it itself, with the same body, for its own container's health check. \"Try it out\" on this page therefore checks nginx, not the calculator.",
         "parameters": [
           {
             "$ref": "#/components/parameters/RequestId"
@@ -477,12 +477,11 @@
         "name": "X-Request-ID",
         "in": "header",
         "required": false,
-        "description": "An ID for this request, to find its log line. A well-formed one is kept and sent back; anything else is replaced with a new one.",
+        "description": "Optional. An ID for this request, to find its log line. A well-formed one is kept and sent back; anything else is replaced with a new one. Leave it empty to get a new ID for each request.",
         "schema": {
           "type": "string",
           "pattern": "^[A-Za-z0-9-]{1,64}$"
-        },
-        "example": "4f2a9c1e-77b0"
+        }
       }
     },
     "headers": {
