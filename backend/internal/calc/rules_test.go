@@ -14,29 +14,37 @@ import (
 	"testing"
 )
 
-// allowedAPIs is everything calc may use from other packages. It enforces
-// ground rules 1, 3 and 4: no binary floating point, no shopspring function
-// that rounds or formats on its own terms (Div, Avg, Round, Sqrt, the
-// formatting globals and the rest), and nothing that does I/O, reads the
-// clock or logs. A nil list allows the whole package, for packages that are
-// pure. Adding a name here is a deliberate decision, not a side effect.
+// allowedAPIs is every name calc may use from other packages, methods
+// included. It enforces ground rules 1, 3 and 4: no binary floating point, no
+// shopspring function that rounds or formats on its own terms (Div, Avg,
+// Round, Sqrt, the formatting globals and the rest), nothing that does I/O,
+// reads the clock or logs, and no method that changes a value in place (such
+// as regexp's Longest). Adding a name here is a deliberate decision, not a
+// side effect.
 var allowedAPIs = map[string][]string{
-	"maps":     nil,
-	"regexp":   nil,
-	"slices":   nil,
-	"strings":  nil,
 	"fmt":      {"Sprintf"},
+	"maps":     {"Keys"},
 	"math/big": {"Bit"},
+	"regexp":   {"MatchString", "MustCompile"},
+	"slices":   {"Sorted"},
+	"strings":  {"Join"},
 	"github.com/shopspring/decimal": {
 		"Abs", "Add", "BigInt", "Cmp", "Decimal", "Equal", "Exponent", "IsZero", "Mul", "Neg",
 		"New", "NewFromString", "Normalize", "NumDigits", "QuoRem", "RoundBank", "Shift", "Sign", "String", "Sub",
 	},
 }
 
+// allowedGlobals lists calc's package-level variables. Both are set once at
+// start-up and only read after that. A new one is a deliberate decision.
+var allowedGlobals = []string{"numberPattern", "operations"}
+
 // violations type-checks files as one package and reports every break of the
 // rules: an import or API outside allowedAPIs, a value of float or complex
-// type (including untyped literals such as 0.5), or a write to a
-// package-level variable.
+// type (including untyped literals such as 0.5), a package-level variable
+// outside allowedGlobals, or a direct write to one. A direct write is an
+// assignment, ++ or --, delete or clear, or taking its address. Writes through
+// an alias (m := operations; m["x"] = ...) are not caught; allowedGlobals
+// keeps the variables that could be aliased few and reviewed.
 func violations(fset *token.FileSet, files []*ast.File) ([]string, error) {
 	info := &types.Info{
 		Uses:  map[*ast.Ident]types.Object{},
@@ -52,6 +60,15 @@ func violations(fset *token.FileSet, files []*ast.File) ([]string, error) {
 	report := func(pos token.Pos, format string, args ...any) {
 		found = append(found, fset.Position(pos).String()+": "+fmt.Sprintf(format, args...))
 	}
+	isGlobal := func(e ast.Expr) (*types.Var, bool) {
+		v, ok := info.Uses[rootIdent(e)].(*types.Var)
+		return v, ok && v.Parent() == pkg.Scope()
+	}
+	for _, name := range pkg.Scope().Names() {
+		if v, ok := pkg.Scope().Lookup(name).(*types.Var); ok && !slices.Contains(allowedGlobals, name) {
+			report(v.Pos(), "declares package-level variable %s, which is not on the allowlist", name)
+		}
+	}
 	for _, file := range files {
 		for _, imp := range file.Imports {
 			path, _ := strconv.Unquote(imp.Path.Value)
@@ -61,14 +78,28 @@ func violations(fset *token.FileSet, files []*ast.File) ([]string, error) {
 		}
 		ast.Inspect(file, func(n ast.Node) bool {
 			var targets []ast.Expr
-			switch stmt := n.(type) {
+			switch node := n.(type) {
 			case *ast.AssignStmt:
-				targets = stmt.Lhs
+				targets = node.Lhs
 			case *ast.IncDecStmt:
-				targets = []ast.Expr{stmt.X}
+				targets = []ast.Expr{node.X}
+			case *ast.RangeStmt:
+				if node.Tok == token.ASSIGN {
+					targets = []ast.Expr{node.Key, node.Value}
+				}
+			case *ast.UnaryExpr:
+				if node.Op == token.AND {
+					targets = []ast.Expr{node.X}
+				}
+			case *ast.CallExpr:
+				if fn, ok := node.Fun.(*ast.Ident); ok && len(node.Args) > 0 {
+					if b, ok := info.Uses[fn].(*types.Builtin); ok && (b.Name() == "delete" || b.Name() == "clear") {
+						targets = node.Args[:1]
+					}
+				}
 			}
 			for _, target := range targets {
-				if v, ok := info.Uses[rootIdent(target)].(*types.Var); ok && v.Parent() == pkg.Scope() {
+				if v, ok := isGlobal(target); ok {
 					report(target.Pos(), "writes package-level variable %s", v.Name())
 				}
 			}
@@ -79,8 +110,7 @@ func violations(fset *token.FileSet, files []*ast.File) ([]string, error) {
 		if obj.Pkg() == nil || obj.Pkg() == pkg {
 			continue // built-ins, and the package's own names
 		}
-		allowed, ok := allowedAPIs[obj.Pkg().Path()]
-		if !ok || (allowed != nil && !slices.Contains(allowed, obj.Name())) {
+		if !slices.Contains(allowedAPIs[obj.Pkg().Path()], obj.Name()) {
 			report(id.Pos(), "uses %s.%s, which is not on the allowlist", obj.Pkg().Path(), obj.Name())
 		}
 	}
@@ -96,7 +126,7 @@ func violations(fset *token.FileSet, files []*ast.File) ([]string, error) {
 // rootIdent returns the variable an assignment target writes through:
 // operations for operations["x"], d for d.field, nil for anything else.
 func rootIdent(e ast.Expr) *ast.Ident {
-	for {
+	for e != nil {
 		switch x := e.(type) {
 		case *ast.Ident:
 			return x
@@ -112,6 +142,7 @@ func rootIdent(e ast.Expr) *ast.Ident {
 			return nil
 		}
 	}
+	return nil
 }
 
 func TestCalcFollowsGroundRules(t *testing.T) {
@@ -149,6 +180,8 @@ func TestViolationsCatchesBrokenRules(t *testing.T) {
 	const src = `package sample
 
 import (
+	"regexp"
+	"slices"
 	_ "time"
 
 	"github.com/shopspring/decimal"
@@ -158,9 +191,23 @@ var precision = 34
 
 var half = 0.5
 
+var table = map[string]int{"a": 1}
+
+var list = []int{2, 1}
+
+var pattern = regexp.MustCompile("a+")
+
 func average(a, b decimal.Decimal) decimal.Decimal {
 	decimal.UseScientificNotation = true
 	precision++
+	delete(table, "a")
+	clear(list)
+	slices.Sort(list)
+	pattern.Longest()
+	p := &precision
+	*p = 0
+	for _, list[0] = range list {
+	}
 	return decimal.Avg(a, b)
 }
 `
@@ -179,7 +226,14 @@ func average(a, b decimal.Decimal) decimal.Decimal {
 		"has a value of type float64",
 		"decimal.UseScientificNotation, which is not on the allowlist",
 		"decimal.Avg, which is not on the allowlist",
-		"writes package-level variable precision",
+		"sample.go:23:2: writes package-level variable precision", // ++
+		"sample.go:24:9: writes package-level variable table",     // delete
+		"sample.go:25:8: writes package-level variable list",      // clear
+		"sample.go:28:8: writes package-level variable precision", // &
+		"sample.go:30:9: writes package-level variable list",      // range assignment
+		"uses slices.Sort, which is not on the allowlist",
+		"uses regexp.Longest, which is not on the allowlist",
+		"declares package-level variable half, which is not on the allowlist",
 	} {
 		if !strings.Contains(report, want) {
 			t.Errorf("violations did not report %q; got:\n%s", want, report)

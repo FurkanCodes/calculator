@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"testing/iotest"
 )
 
 const calculatePath = "/api/v1/calculate"
@@ -134,6 +135,8 @@ func TestErrorResponses(t *testing.T) {
 		{"operands is an object", http.MethodPost, calculatePath, `{"operation": "add", "operands": {"a": "1"}}`, 400, "INVALID_REQUEST"},
 		{"operands is null", http.MethodPost, calculatePath, `{"operation": "add", "operands": null}`, 400, "INVALID_REQUEST"},
 		{"second JSON value", http.MethodPost, calculatePath, `{"operation": "add", "operands": ["1", "2"]} 5`, 400, "INVALID_REQUEST"},
+		{"duplicate operation key", http.MethodPost, calculatePath, `{"operation": "add", "operation": "divide", "operands": ["1", "4"]}`, 400, "INVALID_REQUEST"},
+		{"duplicate operands key", http.MethodPost, calculatePath, `{"operation": "add", "operands": ["1", "2"], "operands": ["3", "4"]}`, 400, "INVALID_REQUEST"},
 		{"operands are JSON numbers", http.MethodPost, calculatePath, `{"operation": "add", "operands": [0.1, 0.2]}`, 400, "INVALID_NUMBER"},
 		{"an operand is null", http.MethodPost, calculatePath, `{"operation": "add", "operands": ["1", null]}`, 400, "INVALID_NUMBER"},
 		{"operand is not a number", http.MethodPost, calculatePath, calculateBody("add", "1", "abc"), 400, "INVALID_NUMBER"},
@@ -141,11 +144,16 @@ func TestErrorResponses(t *testing.T) {
 		{"empty operands", http.MethodPost, calculatePath, `{"operation": "add", "operands": []}`, 400, "WRONG_OPERAND_COUNT"},
 		{"unsupported operation", http.MethodPost, calculatePath, calculateBody("modulo", "1", "2"), 400, "UNSUPPORTED_OPERATION"},
 		{"body over 4 KiB", http.MethodPost, calculatePath, calculateBody("add", "1", strings.Repeat("1", 5000)), 413, "INPUT_TOO_LARGE"},
+		{"non-JSON body over 4 KiB", http.MethodPost, calculatePath, strings.Repeat("x", 10000), 413, "INPUT_TOO_LARGE"},
+		{"valid object then 4 KiB of junk", http.MethodPost, calculatePath, calculateBody("add", "1", "2") + strings.Repeat("x", 10000), 413, "INPUT_TOO_LARGE"},
 		{"operand over 34 digits", http.MethodPost, calculatePath, calculateBody("add", "1", "12345678901234567890123456789012345"), 413, "INPUT_TOO_LARGE"},
 		{"division by zero", http.MethodPost, calculatePath, calculateBody("divide", "10", "0"), 422, "DIVISION_BY_ZERO"},
 		{"result out of range", http.MethodPost, calculatePath, calculateBody("multiply", "1"+strings.Repeat("0", 99), "10"), 422, "OUT_OF_RANGE"},
 		{"unknown path", http.MethodGet, "/api/v2/calculate", "", 404, "NOT_FOUND"},
 		{"root path", http.MethodGet, "/", "", 404, "NOT_FOUND"},
+		{"double slash in path", http.MethodPost, "/api/v1//calculate", calculateBody("add", "1", "2"), 404, "NOT_FOUND"},
+		{"dot segment in path", http.MethodPost, "/api/v1/./calculate", calculateBody("add", "1", "2"), 404, "NOT_FOUND"},
+		{"trailing slash", http.MethodPost, calculatePath + "/", calculateBody("add", "1", "2"), 404, "NOT_FOUND"},
 		{"GET on calculate", http.MethodGet, calculatePath, "", 405, "METHOD_NOT_ALLOWED"},
 		{"POST on healthz", http.MethodPost, "/healthz", "", 405, "METHOD_NOT_ALLOWED"},
 		{"DELETE on healthz", http.MethodDelete, "/healthz", "", 405, "METHOD_NOT_ALLOWED"},
@@ -299,5 +307,14 @@ func TestNonCalcErrorBecomesInternalError(t *testing.T) {
 	cause := errors.New("not a calc error")
 	if got := fromCalc(cause); got.code != codeInternal || got.cause != cause {
 		t.Errorf("fromCalc = %+v, want INTERNAL_ERROR keeping the cause", got)
+	}
+}
+
+// A body that fails to read for any reason but its size, such as a client that
+// disconnects mid-request, is reported as a malformed request.
+func TestUnreadableBodyIsInvalidRequest(t *testing.T) {
+	_, apiErr := decodeCalculateRequest(iotest.ErrReader(errors.New("connection reset")))
+	if apiErr != errMalformed {
+		t.Errorf("got %v, want errMalformed", apiErr)
 	}
 }

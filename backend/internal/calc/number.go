@@ -13,6 +13,10 @@ const (
 
 	// maxLength caps an operand string before any parsing work is done.
 	maxLength = 256
+
+	// maxMagnitude bounds the range: a number is zero, or has
+	// 1e-maxMagnitude <= |x| < 1e+maxMagnitude.
+	maxMagnitude = 100
 )
 
 // numberPattern is a plain decimal: an optional minus sign, ASCII digits and
@@ -39,7 +43,7 @@ func parseOperand(position int, s string) (decimal.Decimal, error) {
 	}
 	if !inRange(d) {
 		return decimal.Decimal{}, newError(OutOfRange,
-			"Operand %d is outside the supported range of 1e-100 to 1e100.", position)
+			"Operand %d is outside the supported range of 1e-%d to 1e%d.", position, maxMagnitude, maxMagnitude)
 	}
 	return d, nil
 }
@@ -55,11 +59,11 @@ func significantDigits(d decimal.Decimal) int {
 	return d.Normalize().NumDigits()
 }
 
-// inRange reports whether d is zero, or has 1e-100 <= |d| < 1e100.
+// inRange reports whether d is zero, or has 1e-maxMagnitude <= |d| < 1e+maxMagnitude.
 func inRange(d decimal.Decimal) bool {
 	if d.IsZero() {
 		return true
 	}
 	abs := d.Abs()
-	return abs.Cmp(decimal.New(1, -100)) >= 0 && abs.Cmp(decimal.New(1, 100)) < 0
+	return abs.Cmp(decimal.New(1, -maxMagnitude)) >= 0 && abs.Cmp(decimal.New(1, maxMagnitude)) < 0
 }

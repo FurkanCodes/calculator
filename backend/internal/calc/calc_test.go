@@ -3,6 +3,7 @@ package calc
 import (
 	"errors"
 	"maps"
+	"math/big"
 	"slices"
 	"strings"
 	"testing"
@@ -148,10 +149,61 @@ var inverses = map[string]string{
 	"add": "subtract", "subtract": "add", "multiply": "divide", "divide": "multiply",
 }
 
+// reference computes name(a, b) exactly with math/big, an implementation
+// independent of shopspring, then rounds it to Precision significant digits,
+// half to even, by integer division. It returns the rounded value and whether
+// rounding changed it. b must not be zero for divide.
+func reference(name, a, b string) (decimal.Decimal, bool) {
+	x, _ := new(big.Rat).SetString(a)
+	y, _ := new(big.Rat).SetString(b)
+	exact := map[string]func(x, y *big.Rat) *big.Rat{
+		"add":      new(big.Rat).Add,
+		"subtract": new(big.Rat).Sub,
+		"multiply": new(big.Rat).Mul,
+		"divide":   new(big.Rat).Quo,
+	}[name](x, y)
+	if exact.Sign() == 0 {
+		return decimal.Zero, true
+	}
+
+	// Find k so that 10^(Precision-1) <= |exact| × 10^k < 10^Precision, then
+	// q = |exact| × 10^k truncated is the result's Precision digits.
+	abs := new(big.Rat).Abs(exact)
+	pow10 := func(n int) *big.Int { return new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(n)), nil) }
+	k := Precision - (len(abs.Num().String()) - len(abs.Denom().String()))
+	scaled := func() (num, den *big.Int) {
+		if k >= 0 {
+			return new(big.Int).Mul(abs.Num(), pow10(k)), abs.Denom()
+		}
+		return abs.Num(), new(big.Int).Mul(abs.Denom(), pow10(-k))
+	}
+	for {
+		num, den := scaled()
+		q := new(big.Int).Quo(num, den)
+		switch {
+		case q.Cmp(pow10(Precision-1)) < 0:
+			k++
+		case q.Cmp(pow10(Precision)) >= 0:
+			k--
+		default:
+			_, r := new(big.Int).QuoRem(num, den, new(big.Int))
+			twice := new(big.Int).Lsh(r, 1)
+			if c := twice.Cmp(den); c > 0 || (c == 0 && q.Bit(0) == 1) {
+				q.Add(q, big.NewInt(1))
+			}
+			if exact.Sign() < 0 {
+				q.Neg(q)
+			}
+			return decimal.NewFromBigInt(q, int32(-k)), r.Sign() == 0
+		}
+	}
+}
+
 // FuzzCalculate checks properties that hold for any input: Calculate never
-// panics, every error is an *Error, every result is a valid operand, and an
-// exact result undone by the inverse operation gives back the first operand.
-// It fuzzes only operations with an inverse; others get their own tests.
+// panics, every error is an *Error, every result is a valid operand and
+// matches the math/big reference in value and exactness, and an exact result
+// undone by the inverse operation gives back the first operand. It fuzzes
+// only operations with an inverse; others get their own tests.
 func FuzzCalculate(f *testing.F) {
 	names := slices.Sorted(maps.Keys(inverses))
 	seeds := []struct {
@@ -160,6 +212,12 @@ func FuzzCalculate(f *testing.F) {
 	}{
 		{0, "0.1", "0.2"}, {1, "1", "4"}, {1, "1", "3"}, {1, "1", "0"},
 		{2, "-12.5", "8"}, {2, tenPow99, tenPowMinus99}, {3, "x", "1"},
+		{1, "2", "3"}, {1, "-1", "7"}, {1, "1", "8"}, {2, "0.5", "0.5"},
+		{0, "1234567890123456789012345678901234", "0.5"}, // a tie that rounds to even
+		{0, "1234567890123456789012345678901235", "0.5"},
+		{2, "9999999999999999999999999999999999", "9999999999999999999999999999999999"},
+		{1, "3000000000000000000000000000000001", "2"}, // quotient ties at the 35th digit
+		{1, "3000000000000000000000000000000003", "2"},
 	}
 	for _, s := range seeds {
 		f.Add(s.op, s.a, s.b)
@@ -176,6 +234,11 @@ func FuzzCalculate(f *testing.F) {
 		}
 		if _, err := parseOperand(1, got.Value); err != nil {
 			t.Fatalf("result %q of %s(%q, %q) is not a valid operand: %v", got.Value, name, a, b, err)
+		}
+		gotValue, _ := decimal.NewFromString(got.Value)
+		if want, wantExact := reference(name, a, b); !gotValue.Equal(want) || got.Exact != wantExact {
+			t.Fatalf("%s(%q, %q) = %q exact=%v, but math/big gives %s exact=%v",
+				name, a, b, got.Value, got.Exact, want, wantExact)
 		}
 		divisor, _ := decimal.NewFromString(b)
 		if !got.Exact || (name == "multiply" && divisor.IsZero()) {

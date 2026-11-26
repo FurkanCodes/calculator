@@ -1,7 +1,8 @@
 package httpapi
 
 import (
-	"encoding/json"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"io"
@@ -40,26 +41,25 @@ func calculate(r *http.Request) (any, *apiError) {
 }
 
 // decodeCalculateRequest checks the request's shape only: one JSON object with
-// exactly the keys "operation" and "operands" (matched case-sensitively), a
-// string operation, and an array of string operands. What the operation and
-// operands mean is calc's business.
+// exactly the keys "operation" and "operands" (matched case-sensitively, each
+// once), a string operation, and an array of string operands. What the
+// operation and operands mean is calc's business.
+//
+// The whole body is read before parsing, so a body over the limit is always
+// INPUT_TOO_LARGE, wherever its first syntax error is. encoding/json/v2 then
+// rejects duplicate keys and anything after the object.
 func decodeCalculateRequest(body io.Reader) (calculateRequest, *apiError) {
-	dec := json.NewDecoder(body)
-	var fields map[string]json.RawMessage
-	if err := dec.Decode(&fields); err != nil {
+	data, err := io.ReadAll(body)
+	if err != nil {
 		return calculateRequest{}, decodeError(err)
 	}
-	var extra json.RawMessage
-	switch err := dec.Decode(&extra); {
-	case errors.Is(err, io.EOF): // only whitespace after the object
-	case err != nil:
-		return calculateRequest{}, decodeError(err)
-	default:
-		return calculateRequest{}, errMalformed // a second JSON value
+	var fields map[string]jsontext.Value
+	if json.Unmarshal(data, &fields) != nil {
+		return calculateRequest{}, errMalformed
 	}
 
 	var req calculateRequest
-	var operands []json.RawMessage
+	var operands []jsontext.Value
 	if len(fields) != 2 ||
 		!decodeAs(fields["operation"], '"', &req.operation) ||
 		!decodeAs(fields["operands"], '[', &operands) {
@@ -77,11 +77,11 @@ func decodeCalculateRequest(body io.Reader) (calculateRequest, *apiError) {
 // decodeAs unmarshals raw into v only when raw is the JSON kind that starts
 // with first: '"' for a string, '[' for an array. Checking the first byte
 // also rejects null, which json.Unmarshal would otherwise accept silently.
-func decodeAs(raw json.RawMessage, first byte, v any) bool {
+func decodeAs(raw jsontext.Value, first byte, v any) bool {
 	return len(raw) > 0 && raw[0] == first && json.Unmarshal(raw, v) == nil
 }
 
-// decodeError explains why the body could not be read as one JSON object.
+// decodeError explains why the body could not be read.
 func decodeError(err error) *apiError {
 	var tooLarge *http.MaxBytesError
 	if errors.As(err, &tooLarge) {

@@ -42,17 +42,27 @@ Everything this project is meant to deliver, in build order. An item is ticked o
   - [x] One error table keyed by code, and the real cause logged on a 500 (blocker)
   - [x] Type-checked allowlist for `calc`'s shopspring calls, floats and imports, replacing the name deny-list (blocker)
   - [x] JSON 405 for every route, including `/healthz`
-  - [x] Shape errors in `operands` return `INVALID_REQUEST`; exact, case-sensitive keys
+  - [x] Exact, case-sensitive keys; `operands` that is not an array returns `INVALID_REQUEST`, and a non-string element returns `INVALID_NUMBER` (rule 2)
   - [x] `endpoint` writes success responses too, so it logs the status it actually sent
   - [x] Fuzz test only uses operations that have an inverse
   - [x] `number.go`: check the format first, and write the range check as 10⁻¹⁰⁰ ≤ |x| < 10¹⁰⁰
   - [x] Pin the 4 KiB body limit with a 4096-byte request accepted and a 4097-byte one rejected
-- [ ] Re-review the fixes before merging
+- [x] Re-review the fixes before merging (verdict: approve once the findings below are fixed)
+- [x] Fix the re-review's findings:
+  - [x] Read the whole body, then parse once with `encoding/json/v2`: duplicate keys are rejected, and any body over 4 KiB is 413
+  - [x] Purity check: allowlist of package-level variables, catch `delete`, `clear`, `&` and range assignment, named methods only; docs say exactly what is checked
+  - [x] Planned frontend and operation details moved out of the README
+  - [x] JSON 404 for a path not in clean form, instead of Go's plain-text redirect
+  - [x] Status-table test type-checks `calc`, so a `Code` constant in any form is found
+  - [x] Range limit defined once as `maxMagnitude`
+  - [x] Fuzz test compares every result with an exact `math/big` calculation
+  - [x] README fixes: abbreviated curl output, `X-Request-Id`, complete "not covered" list, shopspring count
 - [ ] Merge `feature/backend-core` into `main`
 
 ## 6. Frontend (`frontend/`)
 
-- [ ] Visual design and layout, drafted as an Artifact, including answers to the open questions in `docs/frontend-design.md`
+- [x] Decide how the `%` key works and how long results are shown (in `docs/frontend-design.md`)
+- [ ] Visual design and layout, drafted as an Artifact
 - [ ] Scaffold: Vite, React, TypeScript, Tailwind CSS, Base UI **(brief)**
 - [ ] Zod number schema, tested against `testdata/numbers.json` **(brief: input validation)**
 - [ ] API client: `fetch`, Zod validation of responses, request cancelling with `AbortController`

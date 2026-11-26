@@ -79,7 +79,8 @@ func Calculate(name string, operands []string) (Result, error) {
 		return Result{}, err
 	}
 	if !inRange(value) {
-		return Result{}, newError(OutOfRange, "The result is outside the supported range of 1e-100 to 1e100.")
+		return Result{}, newError(OutOfRange,
+			"The result is outside the supported range of 1e-%d to 1e%d.", maxMagnitude, maxMagnitude)
 	}
 	return Result{Value: value.String(), Exact: exact}, nil
 }

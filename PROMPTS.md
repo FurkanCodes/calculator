@@ -245,3 +245,29 @@ Outcome: Fixed all eight findings and the smaller gaps.
 - `calc`'s banned-name scan was replaced by a type-checked allowlist that also enforces purity.
 - A new fuzz test covers the parse-order invariant, and the body-limit test now pins exactly 4 KiB.
 - Checked in the running container.
+
+### 20
+
+> continue
+
+Outcome: Reported the fixes from entry 19, then ran a second review of the whole backend branch. It found no structural problems, plus two input-handling bugs (duplicate keys accepted, some oversized bodies given 400) and several claims in the docs that went further than the code.
+
+### 21
+
+> Feel free to fire up couple more sub agents to work on other stories
+
+Outcome: Started two agents in their own worktrees, on branches built on `feature/backend-core`: one for `power`, `sqrt` and `percentage`, one for the frontend scaffold, Zod number schema, API client and reducer.
+
+### 22
+
+> yes fix them, and agree on both UI answers
+
+Outcome: Fixed every re-review finding.
+- The body is read in full and parsed once with `encoding/json/v2`.
+- Unclean paths get the JSON 404.
+- The purity and status-table tests type-check more cases.
+- The range limit is defined once.
+- The fuzz test compares results with `math/big`.
+- Planned content moved out of the README.
+
+Each new test was checked to fail on the old code. Recorded the `%` key behaviour (pocket-calculator style: `50 + 10 % =` gives `55`) and the long-result display (shrink, then scroll, with a copy button) in `docs/frontend-design.md` and `CLAUDE.md`.

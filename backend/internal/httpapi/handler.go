@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"path"
 )
 
 // NewHandler returns the service's HTTP handler. Each API request is logged as
@@ -19,7 +20,21 @@ func NewHandler(logger *slog.Logger) http.Handler {
 	s.route(mux, http.MethodGet, "/healthz", http.HandlerFunc(healthz))
 	s.route(mux, http.MethodPost, "/api/v1/calculate", s.endpoint(calculate))
 	mux.Handle("/", s.endpoint(notFound))
-	return withRequestID(mux)
+	return withRequestID(s.canonicalPathsOnly(mux))
+}
+
+// canonicalPathsOnly answers a path that is not in clean form, such as
+// /api/v1//calculate, with the JSON 404. Go's router would otherwise send a
+// plain-text redirect that skips endpoint, so it would not be logged either.
+func (s *server) canonicalPathsOnly(next http.Handler) http.Handler {
+	notFound := s.endpoint(notFound)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != path.Clean(r.URL.Path) {
+			notFound.ServeHTTP(w, r)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 // route registers h for method on path, together with a JSON 405 for every
