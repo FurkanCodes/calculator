@@ -331,3 +331,27 @@ Also under entry 30: after its ten review fixes, checked `feature/frontend-ui` a
 Outcome: Sent the web container review's fixes to its agent: a narrower README error claim, one request-ID header, a CSP without `'unsafe-inline'`, shorter proxy timeouts, and the dockerignore moved next to its Dockerfile. Started an OpenAPI agent: a hand-written OpenAPI 3.1 `openapi.json` embedded in the backend and served at `/api/v1/openapi.json`, with contract tests that tie it to the operation and status tables, and then a self-hosted Swagger UI at `/docs/` in the web container.
 
 Also under entry 31: checked `feature/web-container` after its review fixes and merged it into `main`. The checks: the CSP has no `'unsafe-inline'`, there is exactly one `X-Request-ID` per response, `/api` gives the JSON 404, assets are gzipped, and both test suites pass on `main`. One review suggestion turned out wrong: the `=503` in `error_page` is needed, or the client gets a 502.
+
+### 32
+
+> I feel like we are starting to over-engineer this.
+
+Outcome: Agreed, and said I had been passing nearly every review finding on as "agree", the latest a 70-line schema validator for a spec that was itself extra scope. Proposed a slimmed plan: fix only what is wrong or untrue, add no machinery just to prove things, run one simple CI workflow, and run full reviews only for changes to calculation or API behaviour.
+
+### 33
+
+> yes go ahead with the slimmed plan
+
+(Interrupted, then restated as entry 34.)
+
+### 34
+
+> yes go ahead with the slimmed plan and do the final check and and report back to me on the requirements we were asked, update the stories and lets see if we have finished product
+
+Outcome: Made the slimmed OpenAPI fixes and merged the branch:
+- "256 bytes" wording;
+- the 404 and 405 responses shown under each API operation;
+- the prose-scanning test deleted;
+- Zod `jitless`, so the app has no CSP violations.
+
+Added `scripts/smoke.sh` and one CI workflow (backend, frontend, Compose smoke test), and dropped the hadolint, shutdown-timing and badge stories. Changed `CLAUDE.md` so full reviews are only for changes to calculation or API behaviour. Ran the final check against the brief.

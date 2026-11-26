@@ -79,10 +79,9 @@ Everything this project is meant to deliver, in build order. An item is ticked o
 
 ## 8. CI
 
-- [ ] GitHub Actions: backend vet and test with coverage, and frontend lint and test with coverage, uploading both coverage reports **(brief: coverage report)**
-- [ ] Compose smoke test: one calculation end to end, then the JSON `SERVICE_UNAVAILABLE` with the calculator stopped
-- [ ] Container rule checks: hadolint (exec-form `ENTRYPOINT`), and the 5-second shutdown limit stays under Compose's `stop_grace_period`
-- [ ] CI badge in the README
+- [x] GitHub Actions: backend vet and test with coverage, and frontend lint and test with coverage, uploading both coverage reports **(brief: coverage report)**
+- [x] Compose smoke test: one calculation end to end, then the JSON `SERVICE_UNAVAILABLE` with the calculator stopped (`scripts/smoke.sh`)
+- Dropped to keep the scope small: hadolint and shutdown-timing checks in CI (hadolint was run by hand on both Dockerfiles and is clean), and a CI badge.
 
 ## 9. Submission
 
