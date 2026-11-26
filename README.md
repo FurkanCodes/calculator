@@ -69,7 +69,7 @@ Success, `200`:
 
 `exact` is `false` when the result was rounded. Every response has an `X-Request-ID` header, and the same ID appears in the service's log line for that request.
 
-Operands and results are JSON strings. A valid number:
+The body must have exactly two keys, `operation` and `operands`, matched case-sensitively. Operands and results are JSON strings. A valid number:
 
 - is a plain decimal such as `-12.5`, `0.001` or `42`, with no `+`, no exponent and no bare `.`
 - is at most 256 characters long
@@ -82,7 +82,7 @@ Every error has the same shape. Clients should act on `code`; `message` is for p
 | ------ | --------------------------------------------------------------------------------------------------- |
 | 400    | `INVALID_REQUEST` (malformed body), `INVALID_NUMBER`, `WRONG_OPERAND_COUNT`, `UNSUPPORTED_OPERATION` |
 | 404    | `NOT_FOUND`                                                                                         |
-| 405    | `METHOD_NOT_ALLOWED`                                                                                |
+| 405    | `METHOD_NOT_ALLOWED`, with an `Allow` header listing the methods the path accepts                   |
 | 413    | `INPUT_TOO_LARGE`: a body over 4 KiB, or an operand over the length or digit limit                  |
 | 422    | `DIVISION_BY_ZERO`, `OUT_OF_RANGE`                                                                  |
 | 500    | `INTERNAL_ERROR`: a bug, logged with the request ID                                                 |
@@ -154,7 +154,7 @@ The arithmetic uses [shopspring/decimal](https://github.com/shopspring/decimal),
 
 - Every result keeps 34 significant digits (the IEEE 754 decimal128 precision), rounded half to even.
 - Each result is rounded exactly once. Add, subtract and multiply are exact, and their result is rounded afterwards. Division truncates with `QuoRem`, and the exact remainder decides the last digit.
-- shopspring's own rounding functions are banned in `calc`, and a test enforces it.
+- `calc` may use only an allowlist of 20 shopspring functions. That keeps out the ones that round or format on their own terms, such as `Div`, `Avg` and the `UseScientificNotation` setting. A test enforces it.
 
 [cockroachdb/apd](https://github.com/cockroachdb/apd) offers this rounding control directly, but writes results into mutable pointers. With shopspring, the precision rules are our own roughly 50 lines of code, tested against Python's `decimal` module. Integer minor units, the usual choice for money, don't fit either: a calculator has no currency and no fixed scale.
 
@@ -178,7 +178,7 @@ On SIGTERM, the server stops accepting connections and lets in-flight requests f
 
 `httpapi` checks only the shape of a request. `calc` checks everything about the numbers, and an operation's operand count is part of its row in the operation table, so adding an operation touches one place. The frontend's Zod checks will be for instant feedback only; the backend never relies on them.
 
-Each error code always maps to the same HTTP status. Errors caused by the request are logged at info level with their code, because a user dividing by zero is the service working correctly. Only a 500 is logged at error level.
+One table maps each error code to its HTTP status. A test reads `calc`'s source and fails if any of its codes is missing from the table. Errors caused by the request are logged at info level with their code, because a user dividing by zero is the service working correctly. Only a 500 is logged at error level, together with its cause.
 
 ### Frontend state management (planned)
 
@@ -192,17 +192,23 @@ go test -race -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out          # or -html=coverage.out for the full report
 ```
 
-Measured at commit `c7e9ee2`:
+Last measured on 2026-11-26:
 
 | Package            | Coverage | Not covered                                    |
 | ------------------ | -------- | ---------------------------------------------- |
 | `internal/calc`    | 100%     |                                                |
 | `internal/httpapi` | 100%     |                                                |
 | `cmd/calculator`   | 84.8%    | `main()` itself, and the shutdown-timeout path |
-| Total              | 96.3%    |                                                |
+| Total              | 96.7%    |                                                |
 
-- **`internal/calc`:** expected results come from Python's `decimal` module, an independent implementation of the same rounding rules. The cases include half-even ties and results that round past 10¹⁰⁰. A fuzz test checks that any input gives either a named error or a valid operand, and that exact results survive the inverse operation. One test runs the shared number cases; another fails if the package uses floats or a shopspring function that rounds on its own.
-- **`internal/httpapi`:** every status and error code is tested. Each error must produce exactly one info-level log line carrying the request ID the client received. Panic recovery is tested, and a separate test fails if the package imports the decimal library.
+- **`internal/calc`:** expected results come from Python's `decimal` module, an independent implementation of the same rounding rules. The cases include half-even ties and results that round past 10¹⁰⁰. A fuzz test checks that any input gives either a named error or a valid operand, and that exact results survive the inverse operation. One test runs the shared number cases. Another type-checks the package and fails on any of these:
+  - a value of float type
+  - a shopspring function outside the allowlist
+  - an import that could do I/O, read the clock or log
+  - a write to a package-level variable
+
+  That check is itself tested against a sample that breaks each rule.
+- **`internal/httpapi`:** every status and error code is tested, including the exact 4 KiB body limit and a 405 on every route. Each error must produce exactly one info-level log line carrying the request ID the client received. Panics and unmapped codes must become a 500 whose log line keeps the original error. One test fails if a `calc` error code has no HTTP status. Another fails if the package imports the decimal library.
 - **`cmd/calculator`:** a request still in flight when shutdown starts must complete, and the `-healthcheck` flag is tested.
 
 CI is not set up yet.

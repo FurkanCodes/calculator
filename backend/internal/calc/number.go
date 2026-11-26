@@ -13,12 +13,6 @@ const (
 
 	// maxLength caps an operand string before any parsing work is done.
 	maxLength = 256
-
-	// minMagnitude and maxMagnitude bound a non-zero number's magnitude, so
-	// that 1e-100 <= |x| < 1e100. 1e-100 has magnitude -99, and every value
-	// below 1e100 has magnitude 100 or less.
-	minMagnitude = -99
-	maxMagnitude = 100
 )
 
 // numberPattern is a plain decimal: an optional minus sign, ASCII digits and
@@ -32,11 +26,13 @@ func parseOperand(position int, s string) (decimal.Decimal, error) {
 		return decimal.Decimal{}, newError(InputTooLarge,
 			"Operand %d is longer than %d characters.", position, maxLength)
 	}
-	d, err := decimal.NewFromString(s)
-	if err != nil || !numberPattern.MatchString(s) {
+	if !numberPattern.MatchString(s) {
 		return decimal.Decimal{}, newError(InvalidNumber,
 			`Operand %d is not a valid number. Use a plain decimal such as "-12.5".`, position)
 	}
+	// NewFromString accepts every string numberPattern does; FuzzNumberPattern
+	// checks that, so the error is always nil here.
+	d, _ := decimal.NewFromString(s)
 	if significantDigits(d) > Precision {
 		return decimal.Decimal{}, newError(InputTooLarge,
 			"Operand %d has more than %d significant digits.", position, Precision)
@@ -64,6 +60,6 @@ func inRange(d decimal.Decimal) bool {
 	if d.IsZero() {
 		return true
 	}
-	m := magnitude(d)
-	return m >= minMagnitude && m <= maxMagnitude
+	abs := d.Abs()
+	return abs.Cmp(decimal.New(1, -100)) >= 0 && abs.Cmp(decimal.New(1, 100)) < 0
 }

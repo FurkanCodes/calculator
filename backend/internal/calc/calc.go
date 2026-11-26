@@ -25,7 +25,8 @@ type operation struct {
 }
 
 // operations is the full set of supported operations. Adding one means adding
-// a row here and its tests; nothing else changes.
+// a row here and its tests. A new error Code also needs its HTTP status in
+// httpapi; a test there fails until it has one.
 var operations = map[string]operation{
 	"add":      exactBinary(decimal.Decimal.Add),
 	"subtract": exactBinary(decimal.Decimal.Sub),

@@ -233,3 +233,15 @@ Outcome: `stories.md` lists every deliverable in build order, with the brief's r
 > also lets put back microservice architectuer for the service it self
 
 Outcome: README reorganised to that outline. Its single architecture diagram now shows the service's internal layers: request ID, router, the endpoint wrapper and JSON decoding in `httpapi`, then the operation table, number rules and precision policy in `calc`, with the error path back to the wrapper.
+
+### 19
+
+> These findings sound good, fix them
+
+Outcome: Fixed all eight findings and the smaller gaps.
+- `httpapi` now has one table from error code to status, checked by a test that reads `calc`'s source, and a 500 logs its real cause.
+- Handlers return a body or an error and the wrapper writes both. Every route gets a JSON 405.
+- Request keys are exact, and operands are checked from the raw JSON.
+- `calc`'s banned-name scan was replaced by a type-checked allowlist that also enforces purity.
+- A new fuzz test covers the parse-order invariant, and the body-limit test now pins exactly 4 KiB.
+- Checked in the running container.

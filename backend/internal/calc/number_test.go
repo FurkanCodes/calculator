@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/shopspring/decimal"
 )
 
 // TestSharedNumberCases runs the number rules against testdata/numbers.json,
@@ -40,4 +42,20 @@ func TestSharedNumberCases(t *testing.T) {
 			}
 		}
 	}
+}
+
+// FuzzNumberPattern checks what parseOperand relies on when it ignores
+// NewFromString's error: every string numberPattern accepts also parses.
+func FuzzNumberPattern(f *testing.F) {
+	for _, s := range []string{"0", "-12.5", "007", "0.001", "1." + zeros(254)} {
+		f.Add(s)
+	}
+	f.Fuzz(func(t *testing.T, s string) {
+		if !numberPattern.MatchString(s) {
+			return
+		}
+		if _, err := decimal.NewFromString(s); err != nil {
+			t.Fatalf("numberPattern accepts %q, but NewFromString rejects it: %v", s, err)
+		}
+	})
 }

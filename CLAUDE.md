@@ -16,7 +16,7 @@ Take-home assignment: a React + TypeScript calculator that calls a Go REST servi
 ### Backend (Go: standard library plus `shopspring/decimal`)
 
 - `cmd/calculator`: reads `PORT` (default 8081), wires the server, handles SIGTERM. `main` only calls `run(ctx) error`, so startup and shutdown can be tested. A `-healthcheck` flag calls `/healthz` and exits 0 or 1, for the Compose health check in an image with no shell.
-- `internal/httpapi`: transport. Routing, JSON decoding, request shape checks (body size, valid JSON, no unknown fields, `operation` is a string, `operands` is an array of strings), and error-to-status mapping. API handlers return their error instead of writing it; one `endpoint` wrapper applies the body limit, recovers panics, writes the JSON error and logs one line per request (request ID, status, code, duration). A request-ID middleware wraps everything. `/healthz` sits outside the wrapper, so it is not logged. It never imports the decimal library, and a test checks that.
+- `internal/httpapi`: transport. Routing, JSON decoding, request shape checks (body size, valid JSON, no unknown fields, `operation` is a string, `operands` is an array of strings), and error-to-status mapping. API handlers return a success body or an error and never write the response; one `endpoint` wrapper applies the body limit, recovers panics, writes the response and logs one line per request (request ID, status, code, duration, and the cause on a 500). Every route is registered with `route`, which adds a JSON 405 for the other methods. Request keys are matched exactly. A request-ID middleware wraps everything. `/healthz` sits outside the wrapper, so it is not logged. It never imports the decimal library, and a test checks that.
 - `internal/calc`: the calculator. Operation table (name, operand count, function), number parsing and limits, the precision policy, and domain errors. It takes the operands as raw strings and returns the result as a string.
 - Endpoints: `POST /api/v1/calculate` and `GET /healthz`.
 - Request: `{"operation": "divide", "operands": ["10", "4"]}`. Success: `200 {"result": "2.5", "exact": true}`. `exact` is always present.
@@ -43,16 +43,16 @@ A Dockerfile per app, a root `docker-compose.yml`, and GitHub Actions CI (lint, 
 
 Each rule needs a test or a lint check behind it. A rule with no check is not done.
 
-1. **No floats where numbers pass through.** No `float32`, `float64` or `strconv.ParseFloat` in the backend number path. The frontend does no arithmetic: it validates strings and displays them. Check: a test that fails if `backend/internal/calc` uses a float type.
+1. **No floats where numbers pass through.** No `float32`, `float64` or `strconv.ParseFloat` in the backend number path. The frontend does no arithmetic: it validates strings and displays them. Check: `calc/rules_test.go` type-checks the package and fails on any value of float type, including untyped literals.
 2. **Numbers travel as strings.** Operands and results are JSON strings (`"0.1"`), never JSON numbers, in both requests and responses. A JSON number in a request is rejected with `INVALID_NUMBER`.
 3. **Results are exact, or rounded and flagged.** Math uses `github.com/shopspring/decimal`, chosen for its immutable API. Its defaults round to a fixed number of decimal places, so small results silently become 0 (`0.000000000000000001 / 3` and `Sqrt(1e-40)` both return 0). `internal/calc` therefore owns one precision policy: 34 significant digits, half-even rounding, one rounding step per result. No other code rounds.
    - Add, subtract and multiply are exact in shopspring: compute, then round once to 34 significant digits with `RoundBank`.
    - Divide uses `QuoRem` at a computed number of decimal places and rounds half-even from the remainder.
    - Square root and power get their own policy path when they are added.
    - `exact` is `false` when the policy changed the result.
-   - Never call `Div`, `DivRound`, `Round`, `Sqrt`, `Pow*` or the `Require*` constructors (they panic), and never change `decimal.DivisionPrecision`. A test enforces this.
+   - `calc` may use only the shopspring functions on the allowlist in `calc/rules_test.go`. That keeps out the ones that round on their own (`Div`, `Avg`, `Round`, `Sqrt`, `Pow*` and the rest), the package-wide settings (`DivisionPrecision`, `UseScientificNotation`, `TrimTrailingZeros`) and the `Require*` constructors, which panic. Adding a name to the allowlist is a deliberate change.
    - Request types hold operands as `string`, never `decimal.Decimal`: its JSON decoder silently accepts bare JSON numbers, which breaks rule 2.
-4. **Same input, same output.** `internal/calc` is pure: no I/O, no mutable globals, no clock, no logging. Table-driven tests cover every operation and every error.
+4. **Same input, same output.** `internal/calc` is pure: no I/O, no mutable globals, no clock, no logging. The same rules test allows only pure imports and fails on any write to a package-level variable. Table-driven tests cover every operation and every error.
 5. **Every failure is a named error with one status.**
    - 400: `INVALID_REQUEST`, `INVALID_NUMBER`, `WRONG_OPERAND_COUNT`, `UNSUPPORTED_OPERATION`.
    - 404: `NOT_FOUND`. 405: `METHOD_NOT_ALLOWED`. Go's router answers these in plain text by default, so register catch-all routes that return the JSON format.
@@ -60,6 +60,7 @@ Each rule needs a test or a lint check behind it. A rule with no check is not do
    - 422: `DIVISION_BY_ZERO`, `NEGATIVE_SQUARE_ROOT`, `INVALID_EXPONENT`, `OUT_OF_RANGE`.
    - 500: `INTERNAL_ERROR`, which means a bug. Panics are recovered, logged at error level with the request ID, and return a generic message.
    - 503: `SERVICE_UNAVAILABLE`, sent only by nginx. nginx's own errors use the same JSON format: 502, 503 and 504 become `SERVICE_UNAVAILABLE`, and its 413 becomes `INPUT_TOO_LARGE`. A CI smoke test stops the calculator and expects the JSON 503.
+   - One table in `httpapi` (`statuses`) maps every code to its status; nothing else sets a status for an error. A test reads `calc`'s source so no calc code can be missing. At run time an unmapped code becomes `INTERNAL_ERROR`, with the original error logged as the cause.
    - Domain errors are logged at info level with their code as a field, never at error level.
 6. **Inputs have limits, defined in one place, each with a test.**
    - Request body: 4 KiB.
