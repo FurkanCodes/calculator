@@ -1,8 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { ERROR_CODES } from '../api'
-import { ERROR_MESSAGES } from '../errors'
+import { ERROR_CODES } from '../api/client'
+import { ERROR_MESSAGES } from '../calculator/messages'
 import { Calculator } from './Calculator'
 
 /** A fetch that answers every request with the same JSON body. */

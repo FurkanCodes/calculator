@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { CalculateOutcome } from './api'
+import type { CalculateOutcome } from '../api/client'
 import {
   type Action,
   applyEntryKey,
@@ -11,7 +11,7 @@ import {
   type Result,
   type State,
   type Typed,
-} from './calculator'
+} from './reducer'
 
 /** A step is an action, or a function of the state, for answering the request in flight. */
 type Step = Action | ((state: State) => State)

@@ -1,5 +1,5 @@
-import type { Calculation, Operator, Shown, State } from './calculator'
-import { type FailureText, failureText } from './errors'
+import type { Calculation, Operator, Shown, State } from './reducer'
+import { type FailureText, failureText } from './messages'
 
 // Everything the display shows, derived from the reducer's state. The
 // components read only this model, never the state itself.

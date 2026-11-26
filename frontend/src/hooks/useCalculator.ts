@@ -1,6 +1,6 @@
 import { useEffect, useReducer } from 'react'
-import { calculate } from './api'
-import { initialState, type Key, reducer, type State } from './calculator'
+import { calculate } from '../api/client'
+import { initialState, type Key, reducer, type State } from '../calculator/reducer'
 
 export interface Calculator {
   state: State

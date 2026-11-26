@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
-import type { Key } from './calculator'
-import { isCalculatorKey, keyAction } from './keys'
+import type { Key } from '../calculator/reducer'
+import { isCalculatorKey, keyAction } from '../calculator/keys'
 
 /**
  * Sends the keyboard map's actions while the calculator is mounted. It listens

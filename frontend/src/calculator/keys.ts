@@ -1,4 +1,4 @@
-import type { Digit, Key } from './calculator'
+import type { Digit, Key } from './reducer'
 
 // The calculator's keys: one table for the keypad and the keyboard map
 // (docs/frontend-design.md).

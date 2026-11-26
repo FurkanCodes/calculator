@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { Calculation, Result, State, Typed } from './calculator'
+import type { Calculation, Result, State, Typed } from './reducer'
 import { describe as describeCalculation, displayModel } from './display'
 
 const typed = (text: string): Typed => ({ origin: 'typed', text })

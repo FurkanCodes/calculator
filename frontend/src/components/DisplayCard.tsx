@@ -1,8 +1,8 @@
 import { useRef } from 'react'
-import type { DisplayModel, ValueModel } from '../display'
-import { CopyButton } from './CopyButton'
-import { AlertIcon, NoConnectionIcon } from './icons'
-import { ValueText } from './ValueText'
+import type { DisplayModel, ValueModel } from '../calculator/display'
+import { CopyButton } from './ui/CopyButton'
+import { AlertIcon, NoConnectionIcon } from './ui/icons'
+import { ValueText } from './ui/ValueText'
 
 /** The display card: expression line, value, and a footer row for its status. */
 export function DisplayCard({ model }: { model: DisplayModel }) {

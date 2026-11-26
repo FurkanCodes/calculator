@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { calculate, CALCULATE_URL, type CalculationRequest } from './api'
+import { calculate, CALCULATE_URL, type CalculationRequest } from './client'
 
 const divide: CalculationRequest = { operation: 'divide', operands: ['1', '3'] }
 

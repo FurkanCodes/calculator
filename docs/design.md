@@ -119,7 +119,7 @@ On SIGTERM, the server stops accepting connections and lets in-flight requests f
 
 ### Validation and error handling
 
-`httpapi` checks only the shape of a request. It reads the whole body before parsing, so any body over 4 KiB is `INPUT_TOO_LARGE` wherever its first syntax error is, and it parses with `encoding/json/v2`, which rejects duplicate keys and anything after the object. `calc` checks everything about the numbers, and an operation's operand count is part of its row in the operation table, so adding an operation touches one place. The frontend's `numberError` (`frontend/src/number.ts`) applies the same number rules in the same order as `parseOperand` in `number.go`, so each rejection has the code the backend would send, and it runs against `testdata/numbers.json` too. Its Zod schema, used on API results, is defined by it. It is there to stop the user typing an invalid number; the backend never relies on it.
+`httpapi` checks only the shape of a request. It reads the whole body before parsing, so any body over 4 KiB is `INPUT_TOO_LARGE` wherever its first syntax error is, and it parses with `encoding/json/v2`, which rejects duplicate keys and anything after the object. `calc` checks everything about the numbers, and an operation's operand count is part of its row in the operation table, so adding an operation touches one place. The frontend's `numberError` (`frontend/src/validation/number.ts`) applies the same number rules in the same order as `parseOperand` in `number.go`, so each rejection has the code the backend would send, and it runs against `testdata/numbers.json` too. Its Zod schema, used on API results, is defined by it. It is there to stop the user typing an invalid number; the backend never relies on it.
 
 One table maps each error code to its HTTP status. A test type-checks `calc` and fails if any constant of type `Code` is missing from the table. Errors caused by the request are logged at info level with their code, because a user dividing by zero is the service working correctly. Only a 500 is logged at error level, together with its cause.
 
@@ -141,7 +141,19 @@ nginx here is a static file server and a reverse proxy, not an API gateway. It d
 
 ### Frontend state management
 
-The calculator's state is a `useReducer` with a pure reducer (`frontend/src/calculator.ts`), tested without rendering. There is one screen and nothing shared between components, so there is no Redux.
+The calculator's state is a `useReducer` with a pure reducer (`frontend/src/calculator/reducer.ts`), tested without rendering. There is one screen and nothing shared between components, so there is no Redux.
+
+`frontend/src` has one folder per kind of code, and each test sits next to the file it tests:
+
+```text
+api/          the API client and the Zod schemas for its answers
+validation/   the number rules, shared with the backend through testdata/numbers.json
+calculator/   the reducer, the display model, error messages and the key table
+hooks/        useCalculator (state plus the request in flight) and useKeyboard
+components/   the calculator's parts and the docs panel
+  ui/         small reusable pieces: CopyButton, ValueText, icons
+test/         the test setup
+```
 
 ```mermaid
 stateDiagram-v2
@@ -176,7 +188,7 @@ The reducer does no arithmetic and no fetching. Entering `Calculating` is the re
 
 ### Frontend API client
 
-`frontend/src/api.ts` calls `POST /api/v1/calculate` with native `fetch` and a relative URL, because nginx serves the page and the API from one origin. In development, Vite forwards `/api` to the backend on port 8081. Zod checks every response, and a result must itself be a valid operand. `calculate()` never throws; it returns one of:
+`frontend/src/api/client.ts` calls `POST /api/v1/calculate` with native `fetch` and a relative URL, because nginx serves the page and the API from one origin. In development, Vite forwards `/api` to the backend on port 8081. Zod checks every response, and a result must itself be a valid operand. `calculate()` never throws; it returns one of:
 
 - `success`, with `result` and `exact`
 - `error`, with the API's error code and its message. The code is `null` when this client doesn't know it, for example a code added to a newer backend; the message is still shown.
@@ -194,7 +206,7 @@ The calculator is one column, at most 420 px wide: a header, the display card, a
 - **Calculating.** The card has `aria-busy`, and the previous value dims while "Calculating…" shows in the footer. Both wait 300 ms, so a fast answer does not flicker. Keys stay enabled and wait for the answer, except Clear, which cancels the request.
 - **Errors.** Each error code has its own short message, and no code is ever shown. A code the client does not know shows the backend's message. No answer, or nginx's `SERVICE_UNAVAILABLE`, shows "Can't reach the calculator." with a no-connection icon. An answer that breaks the API's contract shows "Something went wrong." The next digit starts a new number.
 
-What the components show comes from pure, tested functions: `displayModel` (`display.ts`) turns the reducer's state into the expression and the value, and `failureText` (`errors.ts`) picks the error text. `keys.ts` is one table of the keys, with each key's label, accessible name and the keyboard keys that press it; the keypad renders it, and `keyAction` is built from it.
+What the components show comes from pure, tested functions: `displayModel` (`calculator/display.ts`) turns the reducer's state into the expression and the value, and `failureText` (`calculator/messages.ts`) picks the error text. `calculator/keys.ts` is one table of the keys, with each key's label, accessible name and the keyboard keys that press it; the keypad renders it, and `keyAction` is built from it.
 
 ### Frontend dependencies
 
@@ -233,11 +245,11 @@ The commands and the coverage numbers are in the [README](../README.md#testing-a
 
 The frontend:
 
-- **`number.ts`:** every case in `testdata/numbers.json` must be accepted, or rejected by `numberError` with the code the file gives. Length is measured in UTF-8 bytes, as Go does.
-- **`api.ts`:** `fetch` is mocked. Tests cover the request sent, success, a known error, an error code it does not know (kept as an error with its message), each kind of contract-breaking answer, a body that is not JSON, and a network failure.
-- **`calculator.ts`:** one test per arrow in the state diagram, plus Clear from every state, keys typed ahead in `Calculating` (applied after an answer, dropped after a failure), an answer to an old or different request ignored, each `%` case, the entry keys on typed numbers and on results, and the entry limits.
-- **`useCalculator.ts`:** `fetch` is mocked. Tests check that one request is sent per calculation, that Clear and unmount abort it, and that the answer to a cleared request cannot settle the next one.
-- **`display.ts`, `errors.ts`, `keys.ts`:** the expression and value for every state, the text for every error code, and the keyboard map and which keys are left to other inputs.
+- **`validation/number.ts`:** every case in `testdata/numbers.json` must be accepted, or rejected by `numberError` with the code the file gives. Length is measured in UTF-8 bytes, as Go does.
+- **`api/client.ts`:** `fetch` is mocked. Tests cover the request sent, success, a known error, an error code it does not know (kept as an error with its message), each kind of contract-breaking answer, a body that is not JSON, and a network failure.
+- **`calculator/reducer.ts`:** one test per arrow in the state diagram, plus Clear from every state, keys typed ahead in `Calculating` (applied after an answer, dropped after a failure), an answer to an old or different request ignored, each `%` case, the entry keys on typed numbers and on results, and the entry limits.
+- **`hooks/useCalculator.ts`:** `fetch` is mocked. Tests check that one request is sent per calculation, that Clear and unmount abort it, and that the answer to a cleared request cannot settle the next one.
+- **`calculator/display.ts`, `calculator/messages.ts`, `calculator/keys.ts`:** the expression and value for every state, the text for every error code, and the keyboard map and which keys are left to other inputs.
 - **Components:** rendered with React Testing Library, with `fetch` mocked. Key presses and keyboard input send the right requests and show the results; a mouse press leaves focus where it was, so `Enter` then means equals, while a key reached with Tab is pressed by `Enter`; after unmount, keys send nothing; the rounded chip appears only when `exact` is false; every error code shows its text and never the code; an unknown code shows the backend's message; the unreachable and invalid-response states; Copy writes the full value to the clipboard, and selects it when the clipboard fails; Clear while calculating aborts the request and ignores its late answer. jsdom does no layout, so the font-size tests give elements the widths a browser would, including a refit when the web font loads.
 
 ### CI

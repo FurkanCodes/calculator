@@ -1,4 +1,4 @@
-import { ExternalIcon } from './icons'
+import { ExternalIcon } from './ui/icons'
 
 /**
  * A short guide beside the calculator: what it is, how to use it and how it

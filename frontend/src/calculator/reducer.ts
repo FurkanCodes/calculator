@@ -1,5 +1,5 @@
-import type { BinaryOperation, CalculateOutcome, CalculationRequest } from './api'
-import { isValidNumber } from './number'
+import type { BinaryOperation, CalculateOutcome, CalculationRequest } from '../api/client'
+import { isValidNumber } from '../validation/number'
 
 // The calculator's state machine (docs/frontend-design.md). The reducer is
 // pure: it does no arithmetic and no fetching. Entering Calculating is the

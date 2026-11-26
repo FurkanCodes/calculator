@@ -15,7 +15,7 @@ How the work went:
 - **Optional operations and frontend** (21–29): Parallel branches for `power`, `sqrt` and `percentage` and for the React core. The "Ledger" visual design was chosen from three drafts.
 - **Docker, API docs and CI** (30–34): The web container with a strict CSP, the OpenAPI description with contract tests and Swagger UI, and CI with a Compose smoke test. Scope was tightened when it started to over-engineer.
 - **Submission** (35–41): README trimmed, checked against every line of the brief, repository made public, the nginx reasoning explained.
-- **After the first submission** (42–45): A docs panel beside the calculator. An outside review led to keeping keys typed during a calculation, and to two documentation fixes.
+- **After the first submission** (42–46): A docs panel beside the calculator. An outside review led to keeping keys typed during a calculation, and to two documentation fixes. The frontend was split into folders by kind of code.
 
 ## Full log
 
@@ -408,7 +408,7 @@ Added a "nginx in front, two containers" design decision to the README.
 </details>
 
 <details>
-<summary><strong>After the first submission</strong> (prompts 42–45)</summary>
+<summary><strong>After the first submission</strong> (prompts 42–46)</summary>
 
 ### 42
 
@@ -433,5 +433,11 @@ Both branches merged into `main` and pushed. `PROMPTS.md` had been rewritten on 
 > bring back our older pROMPTS.md but at first just give a brief summary of our prompring and if users click details, they should see our discussions
 
 The full log restored below a short summary, with each phase collapsed.
+
+### 46
+
+> Looks good, now I have couple more questions which i the folder system, in our frontend design, I understand since this is a really small app we just kept everything under the same folder, but it is better if you seperated validations, tests, components, UI elements into their own folders for easier navigation and more readbility and clear navigations, use react skills if necessary, YOU CAN ADD THIS ARCHITETCTURAL BRAIN STORM INTO NECESSARY PLACE IN PROMPTS LOGS.
+
+`frontend/src` split into `api/`, `validation/`, `calculator/` (reducer, display model, messages, keys), `hooks/`, and `components/` with `ui/` for small reusable pieces. We weighed three places for tests: one `tests/` folder, a `__tests__` folder in each folder, or next to each file. We kept each test next to its file, the usual Vite and React layout, so a file and its test move together and the folders alone give the navigation.
 
 </details>
