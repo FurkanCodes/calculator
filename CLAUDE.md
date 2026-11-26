@@ -36,6 +36,7 @@ Take-home assignment: a React + TypeScript calculator that calls a Go REST servi
 - Long results: the display shrinks the text down to a minimum size, then scrolls horizontally. A copy button copies the full value.
 - State stays in the component that uses it. The calculator's state machine is a `useReducer` with a pure reducer (states as in the diagram in `docs/design.md`).
 - Zod validates both user input and API responses. Native `fetch`. Tests use Vitest and React Testing Library.
+- `frontend/src` folders: `api/`, `validation/`, `calculator/` (reducer, display model, messages, keys), `hooks/`, `components/` with `ui/` for small reusable pieces, and `test/` for setup. A test sits next to the file it tests.
 
 ### Tooling
 

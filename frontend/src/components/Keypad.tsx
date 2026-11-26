@@ -1,5 +1,5 @@
-import type { Key } from '../calculator'
-import { KEYS, type KeyKind } from '../keys'
+import type { Key } from '../calculator/reducer'
+import { KEYS, type KeyKind } from '../calculator/keys'
 
 const KIND_CLASSES: Record<KeyKind, string> = {
   digit: 'border-hairline bg-surface text-ink',

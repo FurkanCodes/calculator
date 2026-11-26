@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { ERROR_CODES } from './api'
-import { ERROR_MESSAGES, failureText } from './errors'
+import { ERROR_CODES } from '../api/client'
+import { ERROR_MESSAGES, failureText } from './messages'
 
 describe('failureText', () => {
   const answered = ERROR_CODES.filter((code) => code !== 'SERVICE_UNAVAILABLE')

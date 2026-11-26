@@ -25,7 +25,7 @@ export default defineConfig([
   },
   {
     files: ['src/**/*.{ts,tsx}'],
-    ignores: ['src/**/*.test.{ts,tsx}', 'src/test-setup.ts'],
+    ignores: ['src/**/*.test.{ts,tsx}', 'src/test/**'],
     rules: {
       'no-restricted-globals': [
         'error',

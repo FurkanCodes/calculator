@@ -1,5 +1,5 @@
-import type { ErrorCode } from './api'
-import type { Failure } from './calculator'
+import type { ErrorCode } from '../api/client'
+import type { Failure } from './reducer'
 
 /** What the display shows in place of the value when a calculation fails. */
 export interface FailureText {

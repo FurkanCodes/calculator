@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { numberSchema } from './number'
+import { numberSchema } from '../validation/number'
 
 // Zod 4 probes for `new Function` support when the first object schema is
 // built, which the page's CSP (script-src 'self') blocks and the browser

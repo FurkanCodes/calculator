@@ -1,6 +1,6 @@
-import { displayModel } from '../display'
-import { useCalculator } from '../useCalculator'
-import { useKeyboard } from '../useKeyboard'
+import { displayModel } from '../calculator/display'
+import { useCalculator } from '../hooks/useCalculator'
+import { useKeyboard } from '../hooks/useKeyboard'
 import { DisplayCard } from './DisplayCard'
 import { Keypad } from './Keypad'
 

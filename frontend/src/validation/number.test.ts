@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import cases from '../../testdata/numbers.json'
+import cases from '../../../testdata/numbers.json'
 import { isValidNumber, numberError, numberSchema } from './number'
 
 // The shared cases the Go tests also run (CLAUDE.md rule 8).

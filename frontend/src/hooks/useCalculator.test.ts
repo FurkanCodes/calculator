@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Key } from './calculator'
+import type { Key } from '../calculator/reducer'
 import { useCalculator } from './useCalculator'
 
 const keys: Key[] = [
