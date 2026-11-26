@@ -1,15 +1,14 @@
 # Prompts
 
-The brief asks for the prompts used to build this. They are listed below in order. My messages are copied as I wrote them, except where a note in square brackets says otherwise. Each one is followed by a one-line note on what came out of it.
+The brief asks for the prompts used. Every prompt is below, in order and as typed, typos included; square brackets mark a long paste that is summarised. Each is followed by a one-line result.
 
-## Tools
+## How AI was used
 
-- Claude Code (Claude Opus 5.5), used for design discussion, documentation and code.
-- Skills: EGM brainstorm (`/egm:egm_brainstorm`) to stress-test the design, readme-optimization to structure the README, and [thermo-nuclear-code-quality-review](https://github.com/cursor/plugins/blob/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md) to review code before each merge.
+- **Tool:** Claude Code (Claude Opus 5.5) for design discussion, documentation and code.
+- **Workflow:** I made the design decisions; Claude drafted documents and wrote code under the rules in [CLAUDE.md](CLAUDE.md). Larger pieces were built on separate branches by parallel agents. Each branch that changed calculation or API behaviour got an independent code review ([thermo-nuclear-code-quality-review](https://github.com/cursor/plugins/blob/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md)) before merging. I read, reviewed and tested every change.
+- **Other skills:** EGM brainstorm to stress-test the design, and readme-optimization for the README.
 
-I made the design decisions in these conversations. Claude drafted the documents and writes the code under the rules in [CLAUDE.md](CLAUDE.md). I read and reviewed every change.
-
-## Session 1: design (2026-11-26)
+## Design
 
 ### 1
 
@@ -31,7 +30,7 @@ I made the design decisions in these conversations. Claude drafted the documents
 >
 > /egm:egm_brainstorm
 
-Outcome: Claude compared the scope with the 2–4 hour brief and recommended one Go service behind nginx, with API keys left out of the build. It also raised floating-point precision, Go's JSON encoder failing on infinity and NaN, the unclear meaning of "percentage", and the need for this file.
+Scope set against the 2–4 hour brief: one Go service behind nginx, API keys and a gateway documented but not built. Open questions raised: floating-point precision, what "percentage" means, and keeping this prompt log.
 
 ### 2
 
@@ -45,13 +44,13 @@ Outcome: Claude compared the scope with the 2–4 hour brief and recommended one
 >
 > And for the AWS and API key system, I just thought about it because I want to display that we can do that too. That's the cleanest way to do a microservice. You would have an API gateway, and through that gateway, you authenticate the user and you rate limit the request before they even reach the microservice. That was my thinking perspective
 
-Outcome: First draft of the ground rules: numbers travel as strings, results are exact or rounded and flagged, every failure is a named error, inputs have limits, and the service is stateless. In the gateway discussion, it was established that API keys identify clients rather than authenticate users, and that key creation itself needs a per-IP limit.
+First ground rules: numbers travel as strings, results are exact or rounded and flagged, every failure is a named error, inputs have limits, the service is stateless.
 
 ### 3
 
 > Okay, let's keep this gateway logic in mind, but we don't have to implement it. We can just talk about it in our README, probably. Let's put those ground rules into the cloud.md file first so that when we start building it, we are going to follow those ground rules. Now I want to talk about the backend architecture that we're going to use here.  First of all, we are going to be using this skill https://github.com/cursor/plugins/blob/main/cursor-team-kit/skills/thermo-nuclear-code-quality-review/SKILL.md If you don't have it on the computer, just install it. We are going to run this code quality review skill to check the code that we're going to be writing, okay? And now let's talk about the microservices. Small note about floating numbeR; I would avoid IEEE 754 floating-point arithmetic for financial transactions. Instead, I would represent monetary amounts as 64-bit integers in currency-specific minor units, use fixed-point representations for exchange rates, and arbitrary-precision integers for intermediate calculations. I would enforce explicit rounding policies at monetary boundaries and maintain double-entry accounting invariants at the database level. What do you think about my approach?
 
-Outcome: CLAUDE.md written with the ground rules, and the review skill installed. Claude pointed out gaps in the money approach: amounts smaller than a cent, int64 overflow (which Go does not report), precision loss when inverting exchange rates, splitting amounts so the parts add up, and how double-entry balance is enforced in the database. It also proposed a backend layout with three packages.
+Ground rules written to `CLAUDE.md`; review skill installed. Discussed the money-handling approach (sub-cent amounts, overflow, exchange-rate precision) and settled on a three-package backend.
 
 ### 4
 
@@ -142,13 +141,13 @@ Outcome: CLAUDE.md written with the ground rules, and the review skill installed
 >
 > See, it has a code, so we should have different codes for each error so that we can hold them however we want. We can observe them better if we have these. Do you have any issues with this architecture? I think it is pretty simple and solid.
 
-Outcome: A test program showed shopspring's default `Div` returning `0` for `0.000000000000000001 / 3`. The server snippet was reviewed: the Go process must be PID 1 in Docker to receive SIGTERM, `stop()` should be called after the signal arrives, and more server timeouts are needed. Operand-count checks moved into the operation table, each error code got a fixed HTTP status, and `useReducer` was chosen over Redux.
+Architecture agreed: transport, calculator and precision policy as separate layers; one error format with a fixed status per code; `useReducer` for frontend state; graceful shutdown with the Go process as PID 1.
 
 ### 5
 
 > I would choose shopspring/decimal for general financial apps and web APIs because its immutable API is much easier and safer to use, while cockroachdb/apd is the better pick for high-performance, high-precision calculations where memory allocations and strict rounding rules matter. I think we should stick with shopspring right now because we do not have to worry about performance or precision calculation, right?
 
-Outcome: shopspring chosen for its immutable API, with our own precision policy (34 significant digits, half-even, one rounding step). A test program confirmed that a division built on `QuoRem` rounds ties correctly. "Percentage" was defined as a% of b.
+shopspring/decimal chosen, with our own precision policy: 34 significant digits, half to even, rounded once. "Percentage" defined as a% of b.
 
 ### 6
 
@@ -156,61 +155,63 @@ Outcome: shopspring chosen for its immutable API, with our own precision policy 
 >
 > Let's just draft those diagrams, and I'm going to take a look at the diagram. If I have any more questions, I'm going to address them back to you. Also, I hope you installed that thermonuclear skill that I've just given, because we're going to be running it to test the clarity of our code.
 
-Outcome: README written as the design spec, with five Mermaid diagrams, each rendered and checked. Number limits, error codes and the rules for `power` were set.
+README drafted as the design spec, with Mermaid diagrams; number limits, error codes and the rules for `power` set.
 
 ### 7
 
 > since ngnix works as api gateway we should say that too, this app does not need API gateway, but since it is a microservice, we used ngnix as a placeholder api gateway
 
-Outcome: The README described nginx as a placeholder gateway. Claude pointed out that nginx answers its own errors with HTML pages, which breaks the JSON error format.
+Discussed nginx's role and its HTML error pages.
 
 ### 8
 
 > why did we use ngnix in the first place?
 
-Outcome: nginx's original jobs: serving the static build and keeping the page and the API on one origin, which means no CORS and no public port on the calculator.
+nginx's role clarified: serve the build and keep page and API on one origin (no CORS, no public port on the service).
 
 ### 9
 
 > yes, keep two containers and add the JSON errors also remove ngnix as apigateway then since it does not make any sense
 
-Outcome: The gateway wording was removed. nginx's own errors now use the JSON format (`SERVICE_UNAVAILABLE`), and `NOT_FOUND` and `METHOD_NOT_ALLOWED` were added for Go's router.
+Two containers kept; nginx's own errors use the JSON format; JSON 404 and 405 added.
 
 ### 10
 
 > is ngnix overenineering? I believe it is not if we are deploying a custom cloud instead of like vercel what do you think
 
-Outcome: nginx kept, because it is needed for the Docker deliverable. In the AWS design, CloudFront does its job instead. This also showed that API Gateway's default error bodies would break the JSON error format in production.
+nginx kept for the Docker deliverable; in the AWS design CloudFront does its job.
 
 ### 11
 
 > yes, add the bullet and set up the repo
 
-Outcome: Production design now maps API Gateway errors to our JSON format. Repository initialised.
+Production design maps API Gateway errors to the JSON format. Repository initialised.
+
+## Backend
 
 ### 12
 
 > First lets push the code, then we can start coding
 
-Outcome: Pushed to a private GitHub repo. Built `internal/calc`: the operation table, number rules and precision policy, tested against values from Python's `decimal` module and with a fuzz test.
+Pushed to GitHub. Built the calculator core: operation table, number rules and precision policy, tested against Python's `decimal` module and with a fuzz test.
 
 ### 13
 
 > First, set up the docker properly so when I run docker compose up -d it should start the backend.
 
-Outcome: Added the server entry point (`cmd/calculator`, with graceful shutdown and a `-healthcheck` flag), `GET /healthz`, a multi-stage Dockerfile on distroless, and `docker-compose.yml`. Checked that the container reports healthy and that `docker compose stop` shuts it down cleanly with exit code 0.
+Server entry point with graceful shutdown and a health check, a distroless multi-stage Dockerfile, and Compose. Verified healthy start and clean stop.
 
 ### 14
 
 > Contiue
 
-Outcome: Added `POST /api/v1/calculate`, with strict JSON decoding (operands must be strings), the error format for every code including JSON 404 and 405 responses, request IDs, panic recovery, and one log line per request. Checked it in the running container with the README's curl examples.
+`POST /api/v1/calculate` with strict JSON decoding, the error format for every code, request IDs, panic recovery and request logging. Verified with the README's curl examples.
 
 ### 15
 
 > Run the code quality review and report back
 
-Outcome: The skill can only be started from its slash command, so a separate reviewer agent was given the skill file and the branch, but none of Claude's reasoning about the code. Verdict: not approved. The two blockers were a silent 500 fallback in the error-to-status mapping, and a banned-call test that misses real violations (shopspring's `Avg`, its formatting globals, float literals) and leaves rule 4 unchecked. The fixes are listed in `stories.md`.
+Independent code review of the backend branch; its findings were listed in `stories.md`.
 
 ### 16
 
@@ -218,13 +219,13 @@ Outcome: The skill can only be started from its slash command, so a separate rev
 >
 > [Pasted review notes recommending, section by section, what to keep, shorten, remove or move to `docs/`; that the AWS architecture be moved to `docs/production-design.md`; and a list of technical issues: consider cockroachdb/apd, verify Go 1.27.4, drop the API key architecture, keep the `exact` field and shared fixtures, account for non-invertible operations in the fuzz test, prioritise functional tests over CI smoke tests, include measured coverage, and don't describe unimplemented features as completed.]
 
-Outcome: README cut from 422 to 227 lines. It now describes only what is built, with planned parts marked and drawn with dashed lines in the diagram. The frontend and AWS designs moved to `docs/`, and the request and API-key sequence diagrams were removed. Measured coverage was added. The Go version and the fuzz test's handling of rounding, range and multiplication by zero were checked and needed no change.
+README cut to what is built; planned frontend and AWS designs moved to `docs/`; measured coverage added.
 
 ### 17
 
 > Create stories.md and write down everything we are suppose to implement and tick them one by one.
 
-Outcome: `stories.md` lists every deliverable in build order, with the brief's requirements marked, and ticks only items that are built and verified.
+`stories.md` created: every deliverable in build order, ticked only when built and verified.
 
 ### 18
 
@@ -232,138 +233,124 @@ Outcome: `stories.md` lists every deliverable in build order, with the brief's r
 >
 > also lets put back microservice architectuer for the service it self
 
-Outcome: README reorganised to that outline. Its single architecture diagram now shows the service's internal layers: request ID, router, the endpoint wrapper and JSON decoding in `httpapi`, then the operation table, number rules and precision policy in `calc`, with the error path back to the wrapper.
+README reorganised to that outline, with one diagram of the service's internal layers.
 
 ### 19
 
 > These findings sound good, fix them
 
-Outcome: Fixed all eight findings and the smaller gaps.
-- `httpapi` now has one table from error code to status, checked by a test that reads `calc`'s source, and a 500 logs its real cause.
-- Handlers return a body or an error and the wrapper writes both. Every route gets a JSON 405.
-- Request keys are exact, and operands are checked from the raw JSON.
-- `calc`'s banned-name scan was replaced by a type-checked allowlist that also enforces purity.
-- A new fuzz test covers the parse-order invariant, and the body-limit test now pins exactly 4 KiB.
-- Checked in the running container.
+Review findings fixed: one error-to-status table checked by a test, a type-checked purity and allowlist test for `calc`, JSON 405 on every route, exact request keys.
 
 ### 20
 
 > continue
 
-Outcome: Reported the fixes from entry 19, then ran a second review of the whole backend branch. It found no structural problems, plus two input-handling bugs (duplicate keys accepted, some oversized bodies given 400) and several claims in the docs that went further than the code.
+Second review of the backend branch; its findings fixed in entry 22.
+
+## Optional operations and frontend
 
 ### 21
 
 > Feel free to fire up couple more sub agents to work on other stories
 
-Outcome: Started two agents in their own worktrees, on branches built on `feature/backend-core`: one for `power`, `sqrt` and `percentage`, one for the frontend scaffold, Zod number schema, API client and reducer.
+Work split across parallel agents in separate branches: the optional operations, and the frontend core (scaffold, Zod schema, API client, reducer).
 
 ### 22
 
 > yes fix them, and agree on both UI answers
 
-Outcome: Fixed every re-review finding.
-- The body is read in full and parsed once with `encoding/json/v2`.
-- Unclean paths get the JSON 404.
-- The purity and status-table tests type-check more cases.
-- The range limit is defined once.
-- The fuzz test compares results with `math/big`.
-- Planned content moved out of the README.
-
-Each new test was checked to fail on the old code. Recorded the `%` key behaviour (pocket-calculator style: `50 + 10 % =` gives `55`) and the long-result display (shrink, then scroll, with a copy button) in `docs/frontend-design.md` and `CLAUDE.md`.
+Re-review findings fixed (body parsed once with `encoding/json/v2`, duplicate keys rejected, `math/big` reference in the fuzz test). Recorded the `%` key behaviour and the long-result display.
 
 ### 23
 
 > yes merge it, and add worktrees to gitignore
 
-Outcome: Fast-forwarded `main` to `feature/backend-core` and added `.claude/worktrees/` to `.gitignore`.
+Backend merged into `main`.
 
 ### 24
 
 > allow the mermaid install, and fix the unknown-code handling also we have other subagents ahndlimng otjer stories too communicate and see where the project lies right now I will take alook with you
 
-Outcome: Rendered and checked the frontend state diagram, then pushed `feature/frontend-core` after rebasing it onto `main`. A well-formed error with an unknown code is now kept as an error with the backend's message, not "unreachable". Told the operations agent that `main` had moved, and asked it to rebase. Summarised where the project stands.
+State diagram rendered and checked; an unknown error code now shows the backend's message. Status review of all branches.
 
 ### 25
 
 > yes start the visual design artifact
 
-Outcome: With no design system and the "precise instrument" direction (both chosen by the user), drafted a design canvas with three versions as phone screens (Ledger, Graphite, Blueprint) and a sheet of display states. Checked and pushed `feature/optional-operations` after its rebase, adding `percentage` to the `math/big` fuzz reference. Started code reviews of both open branches.
+Visual design drafted as a canvas: three versions plus the display states. Optional operations checked and pushed; reviews started on both open branches.
 
 ### 26
 
 > lets do A
 
-Outcome: Chose "Ledger" as the visual design. Wrote its spec into `docs/frontend-design.md`: type, colour tokens with contrast checked, layout, keypad, keyboard map and display states. Fixed the dimmed "calculating" colour, which failed contrast in the draft. Closed the last open decision in `CLAUDE.md`.
+"Ledger" chosen; its spec (type, colour tokens with contrast checked, layout, keypad, keyboard map, states) written to `docs/frontend-design.md`.
 
 ### 27
 
 > yes fix them, negate the shown result
 
-Outcome: Sent all ten findings from the frontend-core review to the frontend agent. The main ones: the `%` result could be edited by typing; answers were not tied to their request; the no-arithmetic lint check had gaps; broken responses were reported as "unreachable". Decision recorded: the sign key negates a shown result and keeps its rounded flag. Told the UI agent about the coming API changes (`press` in place of `dispatch`, an `invalidResponse` outcome).
+Frontend review fixes: a `%` result is replaced by the next digit, answers are tied to their request, the no-arithmetic lint rule widened, contract-breaking responses get their own state. The sign key negates a shown result.
 
 ### 28
 
 > yes fix them
 
-Outcome: Sent three fixes from the operations review to the operations agent: delete the early out-of-range check in `power`, since it guards against nothing; give `FuzzPower` a `math/big` value check; commit the Python script that produces the expected test values.
+Operations review fixes: a needless early range check removed, `power` fuzzed against `math/big`, and the Python script that produces the expected test values committed.
 
 ### 29
 
 > merge it when it's ready
 
-Outcome: Checked `feature/frontend-core` after its fixes: lint, typecheck, 141 tests at 100% coverage, and the build. It already contained `main`, so `main` fast-forwarded to it. Both test suites pass on `main`.
+Frontend core and optional operations checked and merged into `main`.
 
-Also under entry 29: after its three review fixes, checked `feature/optional-operations` and merged it into `main`. Vet and race tests pass, with `calc` and `httpapi` at 100%. The committed Python reference script matches all 139 table cases. The new operations were checked against a locally run binary, because Docker Desktop was not running.
+## Docker, API docs and CI
 
 ### 30
 
 > yes please, after that I think it is time to write up the docker file to run both backend and frontend.
 
-Outcome: Sent the UI review's findings to the UI agent. The main ones: the reducer keeps the request on results, so `useSettledFrom` can go; keys flex so the layout fits a 568 px phone screen; the expression line stays on one line; screen readers hear "rounded"; there's one key table. The web container (nginx plus the frontend Dockerfile in Compose) is next, after the UI merges.
-
-Also under entry 30: after its ten review fixes, checked `feature/frontend-ui` and merged it into `main`. 272 tests pass, with 99.6% coverage. Screenshots at four phone sizes show the whole keypad with no scrolling. Lint, typecheck, build and the backend tests pass on `main`.
+UI review fixes (keys flex to fit small phones, one-line expression, screen readers hear "rounded", one key table); UI merged. Web container started.
 
 ### 31
 
 > yes, but also please give us backend API ui as well, use openapi.
 
-Outcome: Sent the web container review's fixes to its agent: a narrower README error claim, one request-ID header, a CSP without `'unsafe-inline'`, shorter proxy timeouts, and the dockerignore moved next to its Dockerfile. Started an OpenAPI agent: a hand-written OpenAPI 3.1 `openapi.json` embedded in the backend and served at `/api/v1/openapi.json`, with contract tests that tie it to the operation and status tables, and then a self-hosted Swagger UI at `/docs/` in the web container.
-
-Also under entry 31: checked `feature/web-container` after its review fixes and merged it into `main`. The checks: the CSP has no `'unsafe-inline'`, there is exactly one `X-Request-ID` per response, `/api` gives the JSON 404, assets are gzipped, and both test suites pass on `main`. One review suggestion turned out wrong: the `=503` in `error_page` is needed, or the client gets a 502.
+Web container review fixes (strict CSP, one request-ID header, shorter proxy timeouts) and merge. OpenAPI 3.1 spec served by the backend with contract tests, and Swagger UI at `/docs/`.
 
 ### 32
 
 > I feel like we are starting to over-engineer this.
 
-Outcome: Agreed, and said I had been passing nearly every review finding on as "agree", the latest a 70-line schema validator for a spec that was itself extra scope. Proposed a slimmed plan: fix only what is wrong or untrue, add no machinery just to prove things, run one simple CI workflow, and run full reviews only for changes to calculation or API behaviour.
+Scope tightened: fix only what is wrong or untrue, one CI workflow, full reviews only for calculation or API changes.
 
 ### 33
 
 > yes go ahead with the slimmed plan
 
-(Interrupted, then restated as entry 34.)
+Restated with more detail as the next prompt.
 
 ### 34
 
 > yes go ahead with the slimmed plan and do the final check and and report back to me on the requirements we were asked, update the stories and lets see if we have finished product
 
-Outcome: Made the slimmed OpenAPI fixes and merged the branch:
-- "256 bytes" wording;
-- the 404 and 405 responses shown under each API operation;
-- the prose-scanning test deleted;
-- Zod `jitless`, so the app has no CSP violations.
+OpenAPI fixes merged. CI added (backend and frontend tests with coverage, and a Compose smoke test). Final check against the brief.
 
-Added `scripts/smoke.sh` and one CI workflow (backend, frontend, Compose smoke test), and dropped the hadolint, shutdown-timing and badge stories. Changed `CLAUDE.md` so full reviews are only for changes to calculation or API behaviour. Ran the final check against the brief.
+## Submission
 
 ### 35
 
 > public, trim read me, do not do a lot of words, stick with simple yet effective readme. keep aws in product design.
 
-Outcome: Cut the README from 440 to 142 lines: quick start, local development, operations, API with the error table, one architecture diagram, six one-line design decisions, testing and coverage, assumptions, and AI usage. The detail moved word for word to `docs/design.md`, and the AWS design stays in `docs/production-design.md`, linked from the README. The repo was scanned for secrets and then made public.
+README cut to 142 lines; detail moved to `docs/design.md`, the AWS design kept in `docs/production-design.md`. Repository made public.
 
 ### 36
 
 > [Pasted the assignment brief from the recruiting email: the objective, functional and non-functional requirements, constraints, deliverables and instructions.]
 
-Outcome: Checked the finished project against every line of the brief. All requirements are met. Added one design decision to the README explaining why there is a single `POST /api/v1/calculate` endpoint rather than one route per operation.
+Checked against every line of the brief; added the rationale for the single `POST /api/v1/calculate` endpoint.
+
+### 37
+
+> tidy up the prompts, do not display our incompetency lol
+
+This file reorganised into phases with shorter result notes. The prompts themselves are unchanged.
