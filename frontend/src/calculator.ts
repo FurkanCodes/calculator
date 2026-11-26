@@ -49,8 +49,11 @@ export type State =
   | { status: 'EnteringFirst'; first: Typed }
   | { status: 'OperatorChosen'; first: Shown; operator: Operator }
   | { status: 'EnteringSecond'; first: Shown; operator: Operator; second: Shown }
-  /** shown is the number on the display when the request was sent, as it was sent: a typed 5. is 5. */
-  | ({ status: 'Calculating'; shown: Shown } & Calculation)
+  /**
+   * shown is the number on the display when the request was sent, as it was
+   * sent: a typed 5. is 5. pending holds the keys pressed since, in order.
+   */
+  | ({ status: 'Calculating'; shown: Shown; pending?: readonly Key[] } & Calculation)
   | { status: 'ShowingResult'; result: Result; calculation?: Calculation }
   | { status: 'Error'; failure: Failure; calculation: Calculation }
 
@@ -88,10 +91,13 @@ export function reducer(state: State, action: Action): State {
     case 'EnteringSecond':
       return enteringSecond(state, action)
     case 'Calculating':
-      // Every other key, and the answer to any other request, is ignored.
-      return action.type === 'settled' && action.request === state.request
-        ? settle(state, action.outcome)
-        : state
+      if (action.type === 'settled') {
+        // The answer to any other request is ignored.
+        return action.request === state.request ? settle(state, action.outcome) : state
+      }
+      // A key pressed before the answer waits for it, so typing fast gives
+      // the same result as typing slowly. The request stays the same object.
+      return { ...state, pending: [...(state.pending ?? []), action] }
     case 'Error':
       // An entry key starts a new first number; everything else is ignored.
       return isEntryKey(action) ? showFirst(applyEntryKey(ZERO, action)) : state
@@ -164,7 +170,20 @@ function enteringSecond(state: Extract<State, { status: 'EnteringSecond' }>, act
   }
 }
 
-function settle({ request, target }: Calculation, outcome: CalculateOutcome): State {
+/**
+ * The state after the answer, with the keys pressed while waiting applied in
+ * order. After a failure they are dropped: they were meant for a number that
+ * never came, and the error stays on the display.
+ */
+function settle(state: Extract<State, { status: 'Calculating' }>, outcome: CalculateOutcome): State {
+  const next = answered(state, outcome)
+  if (next.status === 'Error') {
+    return next
+  }
+  return (state.pending ?? []).reduce<State>((s, key) => reducer(s, key), next)
+}
+
+function answered({ request, target }: Calculation, outcome: CalculateOutcome): State {
   const calculation: Calculation = { request, target }
   if (outcome.kind !== 'success') {
     return { status: 'Error', failure: outcome, calculation }

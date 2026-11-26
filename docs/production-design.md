@@ -29,8 +29,8 @@ flowchart LR
 
 | Local build                         | AWS design                                                  |
 | ----------------------------------- | ----------------------------------------------------------- |
-| nginx serving the React build (planned) | S3 behind CloudFront                                    |
-| nginx forwarding `/api/*` (planned) | A CloudFront behaviour forwarding `/api/*` to API Gateway   |
+| nginx serving the React build       | S3 behind CloudFront                                        |
+| nginx forwarding `/api/*`           | A CloudFront behaviour forwarding `/api/*` to API Gateway   |
 | No gateway, auth or rate limits     | WAF per-IP limits, plus API keys with usage plans           |
 | The calculator container            | The same image on ECS Fargate, two or more tasks across AZs |
 | Compose health check on `/healthz`  | NLB target health check on `/healthz`                       |

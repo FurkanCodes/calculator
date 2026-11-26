@@ -337,15 +337,32 @@ describe('calculating', () => {
     expect(screen.getByText('Calculating…')).toBeDefined()
     expect(expression()).toBe('7 × 6 =')
 
-    click('9', 'Add', 'Equals') // ignored while calculating
-    expect(calls).toHaveLength(1)
-
     calls[0]?.answer(200, { result: '42', exact: true })
     await waitFor(() => {
       expect(value()).toBe('42')
     })
     expect(display().getAttribute('aria-busy')).toBe('false')
     expect(screen.queryByText('Calculating…')).toBeNull()
+  })
+
+  it('keeps keys typed before the answer, so typing fast gives the same result', async () => {
+    const calls = deferredFetch()
+    render(<Calculator />)
+    type('2', '+', '3', '*') // sends 2 + 3
+    type('4', '=') // typed before its answer
+    expect(calls).toHaveLength(1)
+
+    calls[0]?.answer(200, { result: '5', exact: true })
+    await waitFor(() => {
+      expect(calls).toHaveLength(2)
+    })
+    expect(calls[1]?.init.body).toBe('{"operation":"multiply","operands":["5","4"]}')
+    expect(expression()).toBe('5 × 4 =')
+
+    calls[1]?.answer(200, { result: '20', exact: true })
+    await waitFor(() => {
+      expect(value()).toBe('20')
+    })
   })
 
   it('Clear cancels the request and starts again', async () => {

@@ -229,8 +229,39 @@ describe('Calculating', () => {
     ['equals', equals],
     ['square root', squareRoot],
     ['percent', percent],
-  ])('ignores %s', (_name, action) => {
-    expect(reducer(calculating, action)).toBe(calculating)
+  ])('keeps %s until the answer, with the same request', (_name, action) => {
+    const next = reducer(calculating, action)
+    expect(next).toEqual({ ...calculating, pending: [action] })
+    if (next.status !== 'Calculating' || calculating.status !== 'Calculating') throw new Error('expected Calculating')
+    expect(next.request).toBe(calculating.request)
+  })
+
+  it('gives the same result for keys typed before an answer as after it', () => {
+    // 2 + 3 × 4 =, typed before the answer to 2 + 3 arrives.
+    const fast = run(initialState, digit('2'), add, digit('3'), multiply, digit('4'), equals, succeed('5'))
+    expect(fast).toMatchObject({ status: 'Calculating', request: { operation: 'multiply', operands: ['5', '4'] } })
+    expect(run(fast, succeed('20'))).toMatchObject({ status: 'ShowingResult', result: result('20') })
+  })
+
+  it('keeps keys typed during a replayed calculation for its own answer', () => {
+    // 2 + 3 × 4 = × 2 =, all typed before the first answer.
+    const state = run(
+      initialState,
+      ...[digit('2'), add, digit('3'), multiply, digit('4'), equals, multiply, digit('2'), equals],
+      succeed('5'),
+      succeed('20'),
+    )
+    expect(state).toMatchObject({ status: 'Calculating', request: { operation: 'multiply', operands: ['20', '2'] } })
+    expect(run(state, succeed('40'))).toMatchObject({ status: 'ShowingResult', result: result('40') })
+  })
+
+  it('drops keys typed ahead of a failure, so the error stays on the display', () => {
+    const state = run(calculating, digit('4'), add, answer(divisionByZero))
+    expect(state).toEqual({ status: 'Error', failure: divisionByZero, calculation: addition })
+  })
+
+  it('drops keys typed ahead when Clear is pressed', () => {
+    expect(run(calculating, digit('4'), add, clear)).toBe(initialState)
   })
 
   it('ignores the answer to a request that is no longer in flight', () => {
