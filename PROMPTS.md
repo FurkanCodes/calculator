@@ -277,3 +277,9 @@ Each new test was checked to fail on the old code. Recorded the `%` key behaviou
 > yes merge it, and add worktrees to gitignore
 
 Outcome: Fast-forwarded `main` to `feature/backend-core` and added `.claude/worktrees/` to `.gitignore`.
+
+### 24
+
+> allow the mermaid install, and fix the unknown-code handling also we have other subagents ahndlimng otjer stories too communicate and see where the project lies right now I will take alook with you
+
+Outcome: Rendered and checked the frontend state diagram, then pushed `feature/frontend-core` after rebasing it onto `main`. A well-formed error with an unknown code is now kept as an error with the backend's message, not "unreachable". Told the operations agent that `main` had moved, and asked it to rebase. Summarised where the project stands.
