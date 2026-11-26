@@ -187,3 +187,9 @@ Outcome: nginx kept, because it is needed for the Docker deliverable. In the AWS
 > yes, add the bullet and set up the repo
 
 Outcome: Production design now maps API Gateway errors to our JSON format. Repository initialised.
+
+### 12
+
+> First lets push the code, then we can start coding
+
+Outcome: Pushed to a private GitHub repo. Built `internal/calc`: the operation table, number rules and precision policy, tested against values from Python's `decimal` module and with a fuzz test.
