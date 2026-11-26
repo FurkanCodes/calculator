@@ -99,7 +99,8 @@ The keyboard maps digits, `.`, `+ - * /`, `^`, `%`, `Enter` and `=` (equals), an
 **States** (from the states sheet):
 - Calculating: the previous value in `dimmed`, three dots and "Calculating…" in the footer, `aria-busy` on the card. Keys stay enabled but are ignored (the reducer's rule), except `C`.
 - Error: an icon and the message in `error` in place of the value, and "Type a number to start again." in the footer. The text is chosen by error code. For a code the client doesn't know, the backend's message is shown.
-- Unreachable: a no-connection icon, "Can't reach the calculator.", and "Check your connection, then try again." There is no retry button, because the reducer leaves Error only on a digit or Clear.
+- Unreachable: a no-connection icon, "Can't reach the calculator.", and "Check your connection, then try again." There is no retry button, because the reducer leaves Error only on a digit or Clear. nginx's `SERVICE_UNAVAILABLE` also shows this state, because it means the calculator is down.
+- Invalid response (an answer that breaks the API's contract, the client's `invalidResponse`): styled like Error, with "Something went wrong." and "Try again, or press C to start over." in the footer.
 
 ## Open questions
 
