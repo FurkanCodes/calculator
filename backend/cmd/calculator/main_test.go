@@ -129,3 +129,24 @@ func TestRunHealthcheck(t *testing.T) {
 		})
 	}
 }
+
+func TestRunRejectsUnknownFlag(t *testing.T) {
+	if err := run(context.Background(), []string{"-nope"}, env(nil), io.Discard); err == nil {
+		t.Fatal("run with an unknown flag returned nil, want an error")
+	}
+}
+
+func TestRunDefaultsToPort8081(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // so the health check fails at once instead of reaching anything on 8081
+	err := run(ctx, []string{"-healthcheck"}, env(nil), io.Discard)
+	if err == nil || !strings.Contains(err.Error(), "127.0.0.1:8081/healthz") {
+		t.Fatalf("run -healthcheck without PORT returned %v, want an error naming 127.0.0.1:8081/healthz", err)
+	}
+}
+
+func TestCheckHealthRejectsMalformedURL(t *testing.T) {
+	if err := checkHealth(context.Background(), "://no-scheme"); err == nil {
+		t.Fatal("checkHealth with a malformed URL returned nil, want an error")
+	}
+}
