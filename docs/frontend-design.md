@@ -1,6 +1,6 @@
 # Frontend design
 
-**Status: built.** The number checks, the API client, the state machine and the interface below are built and tested in `frontend/src` (see the README). The nginx container that will serve them is not built yet.
+**Status: built.** The number checks, the API client, the state machine and the interface below are built and tested in `frontend/src` (see the README), and the nginx web container serves them (`frontend/Dockerfile`, `frontend/nginx.conf`).
 
 ## Behaviour
 
@@ -52,7 +52,7 @@ The state lives in the calculator component as a `useReducer` with a pure reduce
 
 The web container runs nginx, which serves the React build and forwards `/api/*` to the calculator. The page and the API then share one origin, so there is no CORS setup and the calculator needs no public port. nginx is not an API gateway: it does no authentication or rate limiting.
 
-nginx's own errors use the service's JSON format: its 502, 503 and 504 responses become `SERVICE_UNAVAILABLE` (503), and its 413 becomes `INPUT_TOO_LARGE`. A CI smoke test will stop the calculator and expect the JSON 503.
+nginx's own errors use the service's JSON format: its 502, 503 and 504 responses become `SERVICE_UNAVAILABLE` (503), and its 413 becomes `INPUT_TOO_LARGE`. Malformed HTTP that nginx rejects before routing, such as an oversized header or URI, gets nginx's default HTML page. A CI smoke test will stop the calculator and expect the JSON 503.
 
 ## Visual design: "Ledger"
 
