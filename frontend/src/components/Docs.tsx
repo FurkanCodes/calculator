@@ -23,26 +23,6 @@ export function Docs() {
         </li>
       </ul>
 
-      <Section title="Using it">
-        <ul className="list-disc space-y-1.5 pl-5 marker:text-dimmed">
-          <li>
-            One operation at a time, left to right, like a pocket calculator: <Code>2 + 3 × 4</Code> is{' '}
-            <Code>20</Code>.
-          </li>
-          <li>
-            <Code>50 + 10 %</Code> turns the 10 into 5 (10% of 50), so <Code>=</Code> gives <Code>55</Code>. On its
-            own, <Code>10 %</Code> is <Code>0.1</Code>.
-          </li>
-          <li>
-            Numbers have up to 34 significant digits. <Code>xʸ</Code> takes whole exponents from −1000 to 1000.
-          </li>
-          <li>
-            Keyboard: digits, <Kbd>.</Kbd> <Kbd>+</Kbd> <Kbd>-</Kbd> <Kbd>*</Kbd> <Kbd>/</Kbd> <Kbd>^</Kbd>{' '}
-            <Kbd>%</Kbd>, then <Kbd>Enter</Kbd> or <Kbd>=</Kbd>. <Kbd>Esc</Kbd> or <Kbd>Delete</Kbd> clears.
-          </li>
-        </ul>
-      </Section>
-
       <Section title="How it works">
         <p>
           The React app sends each calculation to a Go service, which does the arithmetic and sends back the result.
@@ -50,8 +30,41 @@ export function Docs() {
           floating point, so nothing is lost on the way.
         </p>
       </Section>
+
+      <Section title="Why it's built this way">
+        <Points>
+          <li>
+            <Lead>No floating point.</Lead> Computers store most decimals as binary fractions, which can't hold 0.1
+            exactly. That's why JavaScript says <Code>0.1 + 0.2</Code> is <Code>0.30000000000000004</Code>. The Go
+            service does its math with an exact decimal library, and
+            numbers travel as text, so nothing turns them into floating point on the way.
+          </li>
+          <li>
+            <Lead>The service does all the math.</Lead> The app never calculates anything itself. It checks what you
+            type so you get quick feedback, and the service checks everything again. One place doing the math means one
+            place to test.
+          </li>
+          <li>
+            <Lead>One endpoint for every operation.</Lead> The app sends the operation's name and its numbers to{' '}
+            <Code>POST /api/v1/calculate</Code>. Every operation shares the same checks and the same error format, and
+            adding one to the service is a row in a table.
+          </li>
+          <li>
+            <Lead>nginx in front.</Lead> It serves the page and passes API calls to the service, so the browser talks
+            to one address. The Go service can't be reached from outside at all.
+          </li>
+        </Points>
+      </Section>
     </article>
   )
+}
+
+function Points({ children }: { children: React.ReactNode }) {
+  return <ul className="list-disc space-y-1.5 pl-5 marker:text-dimmed">{children}</ul>
+}
+
+function Lead({ children }: { children: React.ReactNode }) {
+  return <span className="font-medium">{children}</span>
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -75,12 +88,4 @@ function NewTabLink({ href, children }: { href: string; children: React.ReactNod
 
 function Code({ children }: { children: React.ReactNode }) {
   return <code className="rounded-[4px] bg-function-key px-1 py-px font-mono text-[0.88em] whitespace-nowrap">{children}</code>
-}
-
-function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <kbd className="rounded-[4px] border border-function-key-border bg-surface px-1.5 py-px font-mono text-[0.85em]">
-      {children}
-    </kbd>
-  )
 }
