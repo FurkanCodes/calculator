@@ -174,7 +174,7 @@ GitHub Actions runs both suites on every push and pull request, and uploads both
 What the tests cover:
 
 - `internal/calc`: table-driven tests for every operation and every error code, including rounding ties, the 34-digit boundary and the number limits. Expected values come from Python's `decimal` module, an independent implementation of the same rounding rules. A fuzz test checks that any input either returns a named error or a result that is a valid operand, and that an exact result run through the inverse operation gives back the first operand. A separate test fails if the package uses a float type or a shopspring function that rounds on its own.
-- `internal/httpapi`: `httptest` tests for each status and error code, unknown fields, JSON numbers, oversized bodies, and the request ID header.
+- `internal/httpapi`: `httptest` tests for each status and error code, unknown fields, JSON numbers, oversized bodies, and the request ID header. Each error case also checks that exactly one info-level log line was written with the code and the same request ID the client received. A panic test checks the 500 response and the error-level log with its stack. A further test fails if the package imports the decimal library.
 - `cmd/calculator`: the server starts, and on shutdown it finishes a request that is still in flight.
 - Frontend: the reducer, the Zod schemas run against the shared number cases, the API client with a stubbed `fetch`, and component tests with React Testing Library.
 

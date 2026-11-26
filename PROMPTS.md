@@ -199,3 +199,9 @@ Outcome: Pushed to a private GitHub repo. Built `internal/calc`: the operation t
 > First, set up the docker properly so when I run docker compose up -d it should start the backend.
 
 Outcome: Added the server entry point (`cmd/calculator`, with graceful shutdown and a `-healthcheck` flag), `GET /healthz`, a multi-stage Dockerfile on distroless, and `docker-compose.yml`. Checked that the container reports healthy and that `docker compose stop` shuts it down cleanly with exit code 0.
+
+### 14
+
+> Contiue
+
+Outcome: Added `POST /api/v1/calculate`, with strict JSON decoding (operands must be strings), the error format for every code including JSON 404 and 405 responses, request IDs, panic recovery, and one log line per request. Checked it in the running container with the README's curl examples.

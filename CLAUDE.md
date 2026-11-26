@@ -16,7 +16,7 @@ Take-home assignment: a React + TypeScript calculator that calls a Go REST servi
 ### Backend (Go: standard library plus `shopspring/decimal`)
 
 - `cmd/calculator`: reads `PORT` (default 8081), wires the server, handles SIGTERM. `main` only calls `run(ctx) error`, so startup and shutdown can be tested. A `-healthcheck` flag calls `/healthz` and exits 0 or 1, for the Compose health check in an image with no shell.
-- `internal/httpapi`: transport. Routing, JSON decoding, request shape checks (body size, valid JSON, no unknown fields, `operation` is a string, `operands` is an array of strings), error-to-status mapping, and middleware (request ID, panic recovery, body limit, access log). It never imports the decimal library.
+- `internal/httpapi`: transport. Routing, JSON decoding, request shape checks (body size, valid JSON, no unknown fields, `operation` is a string, `operands` is an array of strings), and error-to-status mapping. API handlers return their error instead of writing it; one `endpoint` wrapper applies the body limit, recovers panics, writes the JSON error and logs one line per request (request ID, status, code, duration). A request-ID middleware wraps everything. `/healthz` sits outside the wrapper, so it is not logged. It never imports the decimal library, and a test checks that.
 - `internal/calc`: the calculator. Operation table (name, operand count, function), number parsing and limits, the precision policy, and domain errors. It takes the operands as raw strings and returns the result as a string.
 - Endpoints: `POST /api/v1/calculate` and `GET /healthz`.
 - Request: `{"operation": "divide", "operands": ["10", "4"]}`. Success: `200 {"result": "2.5", "exact": true}`. `exact` is always present.

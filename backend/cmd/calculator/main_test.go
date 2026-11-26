@@ -98,7 +98,7 @@ func TestRunRejectsBadPort(t *testing.T) {
 }
 
 func TestRunHealthcheck(t *testing.T) {
-	healthy := httptest.NewServer(httpapi.NewHandler())
+	healthy := httptest.NewServer(httpapi.NewHandler(slog.New(slog.DiscardHandler)))
 	defer healthy.Close()
 	unhealthy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)

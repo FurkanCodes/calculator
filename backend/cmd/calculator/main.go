@@ -67,7 +67,7 @@ func run(ctx context.Context, args []string, getenv func(string) string, stdout 
 		return fmt.Errorf("listen: %w", err)
 	}
 	logger := slog.New(slog.NewJSONHandler(stdout, nil))
-	return serve(ctx, newServer(httpapi.NewHandler()), ln, logger)
+	return serve(ctx, newServer(httpapi.NewHandler(logger)), ln, logger)
 }
 
 // newServer sets every timeout, so a slow or idle client cannot hold a
