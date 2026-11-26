@@ -1,7 +1,8 @@
 services:
   web:
     # The repository root is the context because the frontend's type check
-    # reads testdata/numbers.json (see frontend/Dockerfile and .dockerignore).
+    # reads testdata/numbers.json (see frontend/Dockerfile and its
+    # Dockerfile.dockerignore).
     build:
       context: .
       dockerfile: frontend/Dockerfile
@@ -19,8 +20,8 @@ services:
       timeout: 3s
       retries: 3
       start_period: 5s
-    # nginx stops on SIGQUIT and finishes in-flight requests, which the
-    # calculator's 10-second timeouts keep within this window.
+    # nginx stops on SIGQUIT and finishes in-flight requests. Its proxy
+    # timeouts (2 s to connect, 5 s to answer) keep those within this window.
     stop_grace_period: 10s
     restart: unless-stopped
     read_only: true

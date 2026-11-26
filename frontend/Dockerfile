@@ -4,11 +4,12 @@
 # `npm run build` runs `tsc -b` before `vite build`, and the type check covers
 # the tests too, which import ../../testdata/numbers.json from outside
 # frontend/. Building with the same command as development and CI means a type
-# error fails the image build. The root .dockerignore keeps the context to
-# frontend/ and that one file.
+# error fails the image build. Dockerfile.dockerignore, next to this file,
+# keeps the context to frontend/ and that one file; BuildKit applies it to this
+# Dockerfile only.
 
 # Build the static files.
-FROM node:24.22.3-alpine AS build
+FROM node:24.22.3-alpine3.24 AS build
 WORKDIR /src/frontend
 # Dependencies first, so editing the source does not reinstall them. The cache
 # mount keeps npm's download cache between builds without putting it in a layer.
@@ -23,13 +24,15 @@ RUN npm run build
 # mounts as a tmpfs because the container's filesystem is read-only.
 FROM nginxinc/nginx-unprivileged:1.30.6-alpine3.24
 COPY frontend/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /src/frontend/dist /usr/share/nginx/html
+# Its own directory, so the base image's sample pages are not served.
+COPY --from=build /src/frontend/dist /usr/share/nginx/calculator
 EXPOSE 8080
 # The base image already stops with SIGQUIT, which is nginx's graceful
 # shutdown: it stops accepting connections and finishes in-flight requests.
 # SIGTERM would be a fast shutdown that drops them. Stated here so it is visible.
 STOPSIGNAL SIGQUIT
-# Exec form, so nginx is PID 1 and receives the stop signal itself. This also
-# skips the base image's docker-entrypoint.sh, whose scripts rewrite the config
-# at start, which a read-only filesystem would refuse.
+# Exec form, so nginx is PID 1 and receives the stop signal itself. Starting
+# nginx directly also skips the base image's docker-entrypoint.sh, whose
+# scripts try to adjust the config at start (on a read-only filesystem they
+# log and carry on). Without them, the config that runs is exactly this file.
 ENTRYPOINT ["nginx", "-g", "daemon off;"]
