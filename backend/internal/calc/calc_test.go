@@ -23,8 +23,12 @@ func TestCalculate(t *testing.T) {
 	// Expected values come from Python's decimal module set to 34 digits and
 	// half-even rounding: an independent implementation of the same policy.
 	// For power, Python computes the exact power at a higher precision and
-	// rounds it once (dividing 1 by it for a negative exponent); its own
-	// 34-digit power() agrees on every case.
+	// rounds it once (dividing 1 by it for a negative exponent). To recompute
+	// this table and TestCalculateErrors' codes, run this from this directory:
+	//
+	//	python3 testdata/reference.py
+	//
+	// It reads both tables from this file and reports any row that differs.
 	tests := []struct {
 		name      string
 		operation string
